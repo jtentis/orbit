@@ -7,5 +7,14 @@ dist/
 *.spec
 *.pem
 *.key
+*.dpapi
+*.log
+.env
+.env.*
+devices.json
+tuya.json
+tuya-raw.json
+snapshot.json
+/config.json
 local-report.json
 docs/
