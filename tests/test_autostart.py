@@ -37,7 +37,7 @@ def test_failed_registration_preserves_existing_startup(monkeypatch):
 
 
 def test_registration_handles_spaces_and_xml_characters_in_path(monkeypatch):
-    target = r'D:\My app & controls\WindFreeTray.exe'
+    target = r'D:\My app & controls\Orbit.exe'
     monkeypatch.setattr(autostart, '_command', lambda: ([target, '--startup'], Path(target).parent))
     captured = []
     def register(*args):

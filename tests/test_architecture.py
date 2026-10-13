@@ -10,7 +10,7 @@ from lamp.local import LocalLamp
 from lamp.smartthings import SmartThingsLamp
 from lamp.presets import WHITE_PRESETS
 assert LocalLamp and SmartThingsLamp and len(WHITE_PRESETS) == 3
-assert not any(name.split('.')[0] in {'windfree', 'app', 'PySide6'} for name in sys.modules)
+assert not any(name.split('.')[0] in {'aircon', 'app', 'PySide6'} for name in sys.modules)
 '''],
         capture_output=True, text=True, timeout=10,
     )

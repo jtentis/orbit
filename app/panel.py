@@ -13,7 +13,7 @@ from shared.ui import (
     IconButton, Toggle, Segmented, Choice, PageStack, STYLE,
 )
 from shared.network import validate_host
-from windfree.ui import LABELS, label, TemperatureReadout, AirConditioner
+from aircon.ui import LABELS, label, TemperatureReadout, AirConditioner
 from lamp.ui import LampPage, LampSetup
 from lamp.local_setup import LocalLampSetup
 
@@ -95,7 +95,7 @@ class ControlPanel(QWidget):
         layout = QVBoxLayout(page); layout.setContentsMargins(22, 14, 22, 12); layout.setSpacing(3)
         header = QHBoxLayout(); header.setSpacing(8)
         title_layout = QVBoxLayout(); title_layout.setSpacing(2)
-        title_layout.addWidget(self.text('WindFree', 'Title'))
+        title_layout.addWidget(self.text('Ar-condicionado', 'Title'))
         self.room_label = self.text('Conectando ao aparelho…', 'Small'); title_layout.addWidget(self.room_label)
         header.addLayout(title_layout, 1)
         self.power_button = IconButton('power', 'Ligar aparelho', size=40)
@@ -200,7 +200,7 @@ class ControlPanel(QWidget):
         self.settings_status = self.text('', 'Small'); self.settings_status.setWordWrap(True); layout.addWidget(self.settings_status)
         layout.addStretch(1)
         logs = QPushButton('Abrir logs e tempos'); logs.clicked.connect(self.logsRequested.emit); layout.addWidget(logs)
-        quit_button = QPushButton('Sair do WindFree'); quit_button.clicked.connect(self.quitRequested.emit); layout.addWidget(quit_button)
+        quit_button = QPushButton('Sair do Orbit'); quit_button.clicked.connect(self.quitRequested.emit); layout.addWidget(quit_button)
         return page
 
     def fill_combo(self, combo, choices, selected):

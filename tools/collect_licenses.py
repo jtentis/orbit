@@ -27,14 +27,16 @@ for name in ['PySide6-Essentials', 'shiboken6', 'smartthings-local', 'cbor2', 'c
                 directory.mkdir(exist_ok=True)
                 destination = directory / str(file).replace('/', '_').replace('\\', '_')
                 shutil.copyfile(source, destination)
-for name in ('THIRD_PARTY_NOTICES.md', 'README.md'):
+for name in ('THIRD_PARTY_NOTICES.md',):
     source = root / 'docs' / name
     if source.exists(): shutil.copyfile(source, root / 'dist' / name)
-with zipfile.ZipFile(root / 'dist' / 'WindFreeTray-source.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
-    for directory in ['app', 'lamp', 'shared', 'windfree', 'tests', 'tools', 'docs', 'assets']:
+shutil.copyfile(root / 'README.md', root / 'dist' / 'README.md')
+shutil.copytree(root / 'assets', root / 'dist' / 'assets', dirs_exist_ok=True)
+with zipfile.ZipFile(root / 'dist' / 'Orbit-source.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
+    for directory in ['app', 'lamp', 'shared', 'aircon', 'tests', 'tools', 'assets']:
         for file in (root / directory).rglob('*'):
             if file.is_file() and '__pycache__' not in file.parts:
                 archive.write(file, file.relative_to(root))
-    for name in ['main.py', 'requirements.txt', 'requirements-dev.txt', 'build.ps1']:
+    for name in ['README.md', 'main.py', 'requirements.txt', 'requirements-dev.txt', 'build.ps1']:
         archive.write(root / name, name)
 print('Licenças, instruções e código-fonte incluídos em dist.')

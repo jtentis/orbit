@@ -10,7 +10,7 @@ LOG.setLevel(logging.INFO)
 
 def main():
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    handler = RotatingFileHandler(DATA_DIR / 'windfree.log', maxBytes=256000, backupCount=2, encoding='utf-8')
+    handler = RotatingFileHandler(DATA_DIR / 'orbit.log', maxBytes=256000, backupCount=2, encoding='utf-8')
     logging.basicConfig(level=logging.WARNING, handlers=[handler], format='%(asctime)s %(levelname)s %(name)s: %(message)s', force=True)
     LOG.info('[startup] stage=begin pid=%s automatic=%s', os.getpid(), '--startup' in sys.argv)
     from PySide6.QtCore import QLockFile
@@ -20,7 +20,7 @@ def main():
     from app.icons import orbit_icon
     app = QApplication(sys.argv)
     app.setFont(QFont('Segoe UI', 10))
-    app.setApplicationName('WindFree Tray')
+    app.setApplicationName('Orbit')
     app.setWindowIcon(orbit_icon())
     app.setQuitOnLastWindowClosed(False)
     lock = QLockFile(str(DATA_DIR / 'app.lock'))
@@ -34,7 +34,7 @@ def main():
         LOG.info('[startup] stage=ready')
         return app.exec()
     except Exception:
-        logging.exception('Falha ao iniciar WindFree Tray')
+        logging.exception('Falha ao iniciar Orbit')
         return 1
     finally:
         lock.unlock()
@@ -44,5 +44,5 @@ if __name__ == '__main__':
     try:
         sys.exit(main())
     except Exception:
-        logging.exception('Falha ao carregar dependências do WindFree Tray')
+        logging.exception('Falha ao carregar dependências do Orbit')
         sys.exit(1)

@@ -8,7 +8,7 @@ from PySide6.QtGui import QGuiApplication, QFont
 from PySide6.QtWidgets import QApplication
 from PySide6.QtTest import QTest
 from app.panel import ControlPanel
-from windfree.device import Device
+from aircon.device import Device
 from shared.storage import load_config, load_secret
 from lamp.local import discover_local, LocalLamp
 
@@ -27,13 +27,14 @@ try:
     state = device.refresh()
 finally:
     device.close()
+Path('.research').mkdir(exist_ok=True)
 app = QApplication([]); app.setFont(QFont('Segoe UI',10)); app.setQuitOnLastWindowClosed(False)
 panel = ControlPanel(); panel.render(state, True, False, 'Estado confirmado', config)
 area = QGuiApplication.primaryScreen().availableGeometry()
 anchor = QRect(area.right()-35, area.bottom()+1, 24, 24)
 panel.toggle_at(anchor)
 def inspect():
-    panel.grab().save('assets/panel-live-preview.png')
+    panel.grab().save('.research/panel-live-preview.png')
     window_style = ctypes.windll.user32.GetWindowLongW(int(panel.winId()), -16)
     extended_style = ctypes.windll.user32.GetWindowLongW(int(panel.winId()), -20)
     assert window_style & 0x80000000 # WS_POPUP
@@ -49,7 +50,7 @@ def inspect():
     panel.select_device('lamp'); panel.lamp_local_setup.set_found(found_lamps); panel.show_page(4)
     QTest.qWait(230)
     assert panel.pages.currentIndex() == 4 and panel.devices.isVisible()
-    panel.grab().save('assets/lamp-live-setup-preview.png')
+    panel.grab().save('.research/lamp-live-setup-preview.png')
     if not lamp_state: assert not panel.lamp_page.power.isEnabled()
     QTest.keyClick(panel.lamp_local_setup.search, Qt.Key.Key_Escape)
     assert panel.pages.currentIndex() == 2
@@ -59,7 +60,7 @@ def inspect():
         assert panel.lamp_page.power.isEnabled()
         assert panel.lamp_page.level.value() == lamp_state.level
         assert panel.lamp_page.kelvin_value.text() == f'{lamp_state.kelvin:g}%'
-        panel.grab().save('assets/lamp-live-preview.png')
+        panel.grab().save('.research/lamp-live-preview.png')
     panel.select_device('ac')
     QTest.keyClick(panel.power_button, Qt.Key.Key_Escape)
     QTest.qWait(200)

@@ -2,7 +2,7 @@
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from windfree.device import Device, MODE, V
+from aircon.device import Device, MODE, V
 from shared.storage import load_config
 
 device = Device()

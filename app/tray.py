@@ -9,12 +9,12 @@ from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 from . import autostart
 from .icons import orbit_icon
-from windfree.device import Device
-from windfree.discovery import discover
+from aircon.device import Device
+from aircon.discovery import discover
 from shared.network import validate_host
 from shared.storage import DATA_DIR, load_config, save_config
 from .panel import ControlPanel
-from windfree.ui import label
+from aircon.ui import label
 from lamp.smartthings import TOKEN_PAGE
 from lamp.controller import LampController
 
@@ -44,8 +44,8 @@ class TrayApp(QObject):
         self.show_lamp_setup = '--show-lamp-setup' in app.arguments()
         show_lamp = '--show-lamp' in app.arguments() or self.show_lamp_setup
         self.show_after_connect = '--show-panel' in app.arguments() or show_lamp
-        self.message = 'Conectando…' if self.config.get('host') else 'Buscando seu WindFree…'
-        self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='windfree')
+        self.message = 'Conectando…' if self.config.get('host') else 'Buscando ar-condicionado…'
+        self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='aircon')
         self.events = Events(); self.events.done.connect(self.finished)
         self.events.state_changed.connect(self.observed_state)
         self.events.progress.connect(self.command_progress)
@@ -77,7 +77,7 @@ class TrayApp(QObject):
         self.panel.startupRequested.connect(self.toggle_startup)
         self.panel.motionRequested.connect(self.reduce_motion)
         self.panel.quitRequested.connect(self.app.quit)
-        self.panel.logsRequested.connect(lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(DATA_DIR/'windfree.log'))))
+        self.panel.logsRequested.connect(lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(DATA_DIR/'orbit.log'))))
         self.tray = QSystemTrayIcon(orbit_icon(False), self)
         self.tray.activated.connect(self.activated)
         self.sync_panel(); self.tray.show()
@@ -104,9 +104,9 @@ class TrayApp(QObject):
         self.tray.setIcon(orbit_icon(self.online))
         if self.online and self.state:
             temp = f'{self.state.temperature:g} °{self.state.unit}' if self.state.temperature is not None else 'temperatura indisponível'
-            self.tray.setToolTip(f'WindFree · {"Ligado" if self.state.power else "Desligado"} · {temp}\nClique para abrir os controles')
+            self.tray.setToolTip(f'Orbit · {"Ligado" if self.state.power else "Desligado"} · {temp}\nClique para abrir os controles')
         else:
-            self.tray.setToolTip('WindFree · ' + self.message)
+            self.tray.setToolTip('Orbit · ' + self.message)
 
     def sync_lamp(self):
         visible_busy = self.lamp.busy and (self.lamp.operation != 'refresh' or bool(self.lamp.queue))
@@ -199,9 +199,9 @@ class TrayApp(QObject):
                 if self.connection_failures >= 3 and self.config.get('device_id'):
                     self.connection_failures = 0; self.search(); return
             if operation != 'refresh' and not self.panel.isVisible():
-                self.tray.showMessage('WindFree', str(error), QSystemTrayIcon.MessageIcon.Warning, 6000)
+                self.tray.showMessage('Orbit', str(error), QSystemTrayIcon.MessageIcon.Warning, 6000)
             if operation == 'command' and self.device.resources:
-                from windfree.device import state_from_resources
+                from aircon.device import state_from_resources
                 self.state = state_from_resources(self.device.resources)
         elif operation == 'discover':
             self.panel.set_found(result)

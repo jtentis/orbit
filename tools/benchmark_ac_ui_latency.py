@@ -17,7 +17,7 @@ from shared.storage import DATA_DIR
 
 def main():
     logging.basicConfig(level=logging.WARNING,
-        handlers=[RotatingFileHandler(DATA_DIR / 'windfree.log', maxBytes=256000, backupCount=2, encoding='utf-8')],
+        handlers=[RotatingFileHandler(DATA_DIR / 'orbit.log', maxBytes=256000, backupCount=2, encoding='utf-8')],
         format='%(asctime)s %(levelname)s %(name)s: %(message)s')
     app = QApplication([]); app.setFont(QFont('Segoe UI', 10)); app.setQuitOnLastWindowClosed(False)
     controller = TrayApp(app)

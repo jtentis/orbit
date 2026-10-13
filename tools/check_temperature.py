@@ -3,7 +3,7 @@ import time
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import cbor2
-from windfree.device import Device, V
+from aircon.device import Device, V
 
 device = Device()
 try:

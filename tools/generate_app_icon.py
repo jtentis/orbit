@@ -11,9 +11,9 @@ sys.path.insert(0, str(root))
 from app.icons import orbit_icon
 
 app = QApplication([])
-png = root / 'assets' / 'windfree.png'
+png = root / 'assets' / 'orbit.png'
 orbit_icon().pixmap(256, 256).save(str(png))
 with Image.open(png) as image:
-    image.save(root / 'assets' / 'windfree.ico', format='ICO',
+    image.save(root / 'assets' / 'orbit.ico', format='ICO',
                sizes=[(size, size) for size in (16, 20, 24, 32, 40, 48, 64, 128, 256)])
 print('Ícones PNG e ICO gerados a partir de assets/orbit.svg.')

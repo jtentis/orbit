@@ -3,7 +3,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import json
 import cbor2
-from windfree.identity import client_identity
+from aircon.identity import client_identity
 from smartthings_local.protocol.dtls_session import DtlsCoapSession
 
 identity = client_identity()

@@ -10,7 +10,7 @@ import winreg
 from xml.etree import ElementTree as ET
 
 KEY = r'Software\Microsoft\Windows\CurrentVersion\Run'
-NAME = 'WindFreeTray'
+NAME = 'Orbit'
 TASK_NAME = NAME+'-'+getpass.getuser()
 NS = 'http://schemas.microsoft.com/windows/2004/02/mit/task'
 LOG = logging.getLogger(__name__)
@@ -64,7 +64,7 @@ def _task_xml():
     domain = os.environ.get('USERDOMAIN', '')
     user = (domain+'\\' if domain else '')+getpass.getuser()
     task = ET.fromstring(f'''<Task version="1.2" xmlns="{NS}">
-      <RegistrationInfo><Description>WindFree Tray: controles locais ao entrar no Windows.</Description></RegistrationInfo>
+      <RegistrationInfo><Description>Orbit: controles locais ao entrar no Windows.</Description></RegistrationInfo>
       <Triggers><LogonTrigger><Enabled>true</Enabled><UserId/><Delay>PT15S</Delay></LogonTrigger></Triggers>
       <Principals><Principal id="User"><UserId/><LogonType>InteractiveToken</LogonType><RunLevel>LeastPrivilege</RunLevel></Principal></Principals>
       <Settings><MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy><DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>

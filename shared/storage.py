@@ -6,7 +6,7 @@ import json
 import os
 from pathlib import Path
 
-DATA_DIR = Path(os.environ.get('LOCALAPPDATA', str(Path.home()))) / 'WindFreeTray'
+DATA_DIR = Path(os.environ.get('LOCALAPPDATA', str(Path.home()))) / 'Orbit'
 
 
 class _Blob(ctypes.Structure):
@@ -29,7 +29,7 @@ def _protect(data: bytes, decrypt: bool = False) -> bytes:
         args = (ctypes.byref(source), ctypes.byref(description), None, None, None, 1, ctypes.byref(result))
     else:
         fn = crypt.CryptProtectData
-        args = (ctypes.byref(source), 'WindFree Tray', None, None, None, 1, ctypes.byref(result))
+        args = (ctypes.byref(source), 'Orbit', None, None, None, 1, ctypes.byref(result))
     if not fn(*args):
         raise ctypes.WinError(ctypes.get_last_error())
     try:

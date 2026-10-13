@@ -12,8 +12,9 @@ from PySide6.QtGui import QFontDatabase, QFont
 from PySide6.QtWidgets import QApplication
 from PySide6.QtTest import QTest
 import imageio_ffmpeg
+from PIL import Image
 import app.panel as ui
-from windfree.device import state_from_resources
+from aircon.device import state_from_resources
 
 app = QApplication([])
 for name in ['segoeui.ttf', 'segoeuib.ttf', 'seguisb.ttf']:
@@ -23,10 +24,10 @@ ui.windows_motion_enabled = lambda: True
 panel = ui.ControlPanel(); panel.resize(388,650)
 state = state_from_resources(json.loads(Path('tests/fixtures/ar12-controls.json').read_text()))
 state.power = True; state.display_light = True
-config = {'host': '192.168.15.13'}
+config = {'host': '192.168.1.20'}
 panel.render(state, True, False, 'Estado confirmado', config)
 panel.show(); app.processEvents()
-with tempfile.TemporaryDirectory(prefix='windfree-motion-') as directory:
+with tempfile.TemporaryDirectory(prefix='orbit-motion-') as directory:
     folder = Path(directory)
     for frame in range(240):
         if frame == 25:
@@ -53,5 +54,11 @@ with tempfile.TemporaryDirectory(prefix='windfree-motion-') as directory:
                     '-framerate', '30', '-i', str(folder/'frame-%03d.png'), '-c:v', 'libx264',
                     '-pix_fmt', 'yuv420p', '-crf', '19', '-movflags', '+faststart',
                     'assets/panel-motion-preview.mp4'], check=True)
+    frames = []
+    for file in sorted(folder.glob('frame-*.png'))[::3]:
+        with Image.open(file) as image:
+            frames.append(image.convert('RGB').resize((310, 520)).quantize(colors=96))
+    frames[0].save('assets/orbit-motion-preview.gif', save_all=True, append_images=frames[1:],
+                   duration=100, loop=0, optimize=True)
 panel.hide()
 print('Motion preview: assets/panel-motion-preview.mp4')

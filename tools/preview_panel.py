@@ -9,7 +9,7 @@ from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QFontDatabase, QFont
 from PySide6.QtTest import QTest
 from app.panel import ControlPanel
-from windfree.device import state_from_resources
+from aircon.device import state_from_resources
 
 app = QApplication([])
 for font in ['segoeui.ttf', 'segoeuib.ttf', 'seguisb.ttf']:
@@ -19,7 +19,7 @@ state = state_from_resources(json.loads(Path('tests/fixtures/ar12-controls.json'
 state.power = True; state.display_light = True
 panel = ControlPanel()
 panel.resize(388, 650)
-config = {'host': '192.168.15.13', 'reduce_motion': True}
+config = {'host': '192.168.1.20', 'reduce_motion': True}
 panel.render(state, True, False, 'Estado confirmado', config)
 panel.show(); app.processEvents(); QTest.qWait(80)
 Path('assets').mkdir(exist_ok=True)

@@ -8,7 +8,7 @@ from PySide6.QtCore import Qt, QRect
 from PySide6.QtGui import QFontDatabase
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
-from windfree.device import state_from_resources
+from aircon.device import state_from_resources
 from app.panel import ControlPanel, popup_position
 from shared.ui import BG, MUTED, SUBTLE
 

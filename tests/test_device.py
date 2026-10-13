@@ -3,7 +3,7 @@ import json
 import cbor2
 from pathlib import Path
 import pytest
-from windfree.device import Device, command_payload, flatten_resources, state_from_resources, V, MODE, PRESET, FAN
+from aircon.device import Device, command_payload, flatten_resources, state_from_resources, V, MODE, PRESET, FAN
 from shared.network import validate_host
 
 
@@ -90,7 +90,7 @@ def test_rejects_coap_success_when_value_did_not_change(resources, monkeypatch):
     device = Device()
     device.session = Session()
     device.resources = resources
-    monkeypatch.setattr('windfree.device.time.sleep', lambda _: None)
+    monkeypatch.setattr('aircon.device.time.sleep', lambda _: None)
     with pytest.raises(RuntimeError, match='não confirmou'):
         device.command('temperature', 25)
 
@@ -106,7 +106,7 @@ def test_returns_confirmed_state(resources, monkeypatch):
     device = Device()
     device.session = Session()
     device.resources = resources
-    monkeypatch.setattr('windfree.device.time.sleep', lambda _: None)
+    monkeypatch.setattr('aircon.device.time.sleep', lambda _: None)
     assert device.command('temperature', 25).temperature == 25
 
 
@@ -157,9 +157,9 @@ def test_remembered_endpoint_verifies_identity_over_secure_channel(resources, mo
             if path == ['oic', 'd']:
                 return 69, cbor2.dumps({'rt': ['oic.d.airconditioner'], 'di': peer_id})
             return 69, cbor2.dumps([{'href': href, 'rep': rep} for href, rep in resources.items()])
-    monkeypatch.setattr('windfree.device.DtlsCoapSession', Session)
-    monkeypatch.setattr('windfree.device.client_identity', lambda: {'cert': 'test', 'key': 'test'})
-    monkeypatch.setattr('windfree.device.inspect_host', lambda *args, **kwargs: pytest.fail('Should use the remembered secure port'))
+    monkeypatch.setattr('aircon.device.DtlsCoapSession', Session)
+    monkeypatch.setattr('aircon.device.client_identity', lambda: {'cert': 'test', 'key': 'test'})
+    monkeypatch.setattr('aircon.device.inspect_host', lambda *args, **kwargs: pytest.fail('Should use the remembered secure port'))
     device = Device()
     if accepted:
         assert device.connect('192.168.1.10', 'expected', 49154)['device_id'] == 'expected'
@@ -202,7 +202,7 @@ def test_light_can_change_while_air_conditioner_is_off(resources, monkeypatch):
     device = Device()
     device.session = Session()
     device.resources = resources
-    monkeypatch.setattr('windfree.device.time.sleep', lambda _: None)
+    monkeypatch.setattr('aircon.device.time.sleep', lambda _: None)
     assert device.command('display_light', True).display_light is True
     assert state_from_resources(resources).power is False
 
@@ -220,7 +220,7 @@ def test_immediate_readback_does_not_wait_or_read_the_full_device(resources, mon
             resources[href].update(cbor2.loads(body))
             return 68, b''
     device = Device(); device.session = Session(); device.resources = resources
-    monkeypatch.setattr('windfree.device.time.sleep', delays.append)
+    monkeypatch.setattr('aircon.device.time.sleep', delays.append)
     assert device.command('display_light', True).display_light is True
     assert delays == []
     assert ('GET', '/device/0') not in requests
@@ -247,7 +247,7 @@ def test_cached_value_and_metadata_only_reply_do_not_confirm(resources, monkeypa
         def get(self, *args, **kwargs): return 69, cbor2.dumps({'causeSource': 'test'})
         def post(self, *args, **kwargs): return 68, b''
     device = Device(); device.session = Session(); device.resources = resources
-    monkeypatch.setattr('windfree.device.time.sleep', lambda _: None)
+    monkeypatch.setattr('aircon.device.time.sleep', lambda _: None)
     with pytest.raises(RuntimeError, match='não confirmou'):
         device.command('display_light', True)
 

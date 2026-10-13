@@ -9,7 +9,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from shared.storage import DATA_DIR, load_config
-from windfree.device import Device
+from aircon.device import Device
 
 
 def main():
@@ -18,7 +18,7 @@ def main():
     parser.add_argument('--rounds', type=int, choices=range(1, 6), default=3)
     args = parser.parse_args()
     logging.basicConfig(level=logging.WARNING,
-        handlers=[RotatingFileHandler(DATA_DIR / 'windfree.log', maxBytes=256000, backupCount=2, encoding='utf-8')],
+        handlers=[RotatingFileHandler(DATA_DIR / 'orbit.log', maxBytes=256000, backupCount=2, encoding='utf-8')],
         format='%(asctime)s %(levelname)s %(name)s: %(message)s')
     logging.getLogger('benchmark').setLevel(logging.INFO)
     device = Device()

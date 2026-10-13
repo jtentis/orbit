@@ -5,7 +5,7 @@
 )
 $ErrorActionPreference = 'Stop'
 $sourcePath = (Resolve-Path -LiteralPath $SourceDirectory).Path
-$targetPath = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'WindFreeTray'
+$targetPath = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Orbit'
 $allowedFiles = @('config.json', 'identity.dpapi', 'local-lamp.dpapi', 'smartthings-lamp.dpapi')
 $report = @{ Target = $targetPath; Imported = @(); CredentialHashesMatch = $true }
 try {
@@ -39,7 +39,7 @@ try {
     $report.LampProvider = $nativeConfig.lamp.provider
     $report.LampHost = $nativeConfig.lamp.host
     $report.ProtectedKeyPresent = Test-Path -LiteralPath (Join-Path $targetPath 'local-lamp.dpapi')
-    $logPath = Join-Path $targetPath 'windfree.log'
+    $logPath = Join-Path $targetPath 'orbit.log'
     if (Test-Path -LiteralPath $logPath) {
         try {
             $stream = [System.IO.File]::Open($logPath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
