@@ -320,6 +320,8 @@ class ControlPanel(QWidget):
 
     def show_page(self, index):
         self.pages.setCurrentIndex(index)
+        if index == 4: self.lamp_local_setup.opened()
+        self.fit_visible_page()
         self.scroll.verticalScrollBar().setValue(0)
         if not self.reduced:
             from PySide6.QtWidgets import QGraphicsOpacityEffect
@@ -331,7 +333,7 @@ class ControlPanel(QWidget):
             self._page_animation = animation; animation.start()
         if index == 1: self.ip_field.setFocus()
         elif index == 3: self.lamp_setup.token.setFocus()
-        elif index == 4: self.lamp_local_setup.search.setFocus()
+        elif index == 4: self.lamp_local_setup.focus_default()
         elif index == 2:
             (self.lamp_page.power if self.lamp_page.power.isEnabled() else self.lamp_page.connect_button).setFocus()
         else: self.power_button.setFocus()
@@ -343,7 +345,17 @@ class ControlPanel(QWidget):
     def render_lamp(self, state, online, busy, message, info, configured, error=False, operation=None, cloud_configured=None):
         self.lamp_page.render(state, online, busy, message, info, configured, error, operation)
         self.lamp_setup.render(busy, message, configured if cloud_configured is None else cloud_configured, info, error, operation)
-        self.lamp_local_setup.render(busy, message, info, error, operation)
+        self.lamp_local_setup.render(busy, message, info, error, operation, configured=configured, online=online)
+
+    def fit_visible_page(self):
+        if not self.isVisible(): return
+        available = self.screen().availableGeometry()
+        desired = 340 if self.pages.currentIndex() == 4 and self.lamp_local_setup.compact else 650
+        height = min(desired, available.height()-24)
+        if self.height() == height: return
+        self.position_animation.stop(); self.setFixedHeight(height)
+        self._target_position = popup_position(QRect(), available, self.width(), self.height())
+        self.move(self._target_position)
 
     def toggle_at(self, anchor):
         if self.isVisible():

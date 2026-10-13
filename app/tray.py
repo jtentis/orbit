@@ -68,6 +68,7 @@ class TrayApp(QObject):
         self.panel.lamp_local_setup.searchRequested.connect(self.lamp.search_local)
         self.panel.lamp_local_setup.connectRequested.connect(self.lamp.connect_local)
         self.panel.lamp_local_setup.disconnectRequested.connect(self.lamp.disconnect)
+        self.panel.lamp_local_setup.reconnectRequested.connect(self.lamp.retry_local)
         self.panel.lamp_local_setup.helpRequested.connect(lambda: QDesktopServices.openUrl(QUrl('https://github.com/jasonacox/tinytuya#setup-wizard---getting-local-keys')))
         self.panel.commandRequested.connect(self.command)
         self.panel.refreshRequested.connect(self.refresh)

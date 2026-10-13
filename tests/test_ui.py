@@ -319,6 +319,58 @@ def test_local_connection_masks_key_and_preserves_selected_identity(panel):
     assert panel.pages.currentIndex() == 2
 
 
+def test_saved_lamp_settings_hide_commissioning_and_remain_above_taskbar(panel):
+    info = {'provider': 'local', 'device_id': 'fixturelamp', 'host': '192.168.15.11', 'version': 3.5, 'name': 'Lâmpada 12W'}
+    panel.render_lamp(lamp_state(), True, False, 'Confirmado', info, True)
+    panel.select_device('lamp'); panel.show_page(4)
+    setup = panel.lamp_local_setup
+    assert setup.summary.isVisible() and not setup.form.isVisible()
+    assert not setup.key.isVisible() and not setup.cloud.isVisible()
+    assert not setup.retry.isVisible()
+    assert setup.device_name.text() == 'Lâmpada 12W' and 'Conectada' in setup.connection_reading.text()
+    available = panel.screen().availableGeometry()
+    assert panel.geometry().bottom() == available.bottom()
+    assert panel.geometry().right() == available.right()
+    assert panel.height() == min(340, available.height()-24)
+
+
+def test_connection_editor_and_advanced_options_are_explicit_and_reset_on_return(panel):
+    info = {'provider': 'local', 'device_id': 'fixturelamp', 'host': '192.168.15.11', 'version': 3.5, 'name': 'Lâmpada'}
+    panel.render_lamp(lamp_state(), True, False, 'Confirmado', info, True)
+    panel.select_device('lamp'); panel.show_page(4); setup = panel.lamp_local_setup
+    QTest.mouseClick(setup.change, Qt.MouseButton.LeftButton)
+    assert setup.key.isVisible() and not setup.cloud.isVisible()
+    setup.key.setText('fixturelocalkey1')
+    QTest.mouseClick(setup.more, Qt.MouseButton.LeftButton)
+    assert setup.cloud.isVisible() and setup.import_button.isVisible()
+    panel.show_page(2); panel.show_page(4)
+    assert setup.key.text() == '' and not setup.form.isVisible() and not setup.advanced.isVisible()
+    panel.show_page(2)
+    assert panel.height() == min(650, panel.screen().availableGeometry().height()-24)
+
+
+def test_offline_saved_lamp_reconnects_without_requesting_key(panel):
+    info = {'provider': 'local', 'device_id': 'fixturelamp', 'name': 'Lâmpada'}
+    panel.render_lamp(lamp_state(), False, False, 'Tentando reconectar', info, True, error=True)
+    panel.select_device('lamp'); panel.show_page(4); setup = panel.lamp_local_setup
+    requests = []; setup.reconnectRequested.connect(lambda: requests.append(True))
+    assert setup.retry.isVisible() and not setup.key.isVisible()
+    QTest.mouseClick(setup.retry, Qt.MouseButton.LeftButton)
+    assert requests == [True]
+
+
+def test_removing_lamp_requires_explicit_confirmation(panel):
+    info = {'provider': 'local', 'device_id': 'fixturelamp', 'name': 'Lâmpada'}
+    panel.render_lamp(lamp_state(), True, False, 'Confirmado', info, True)
+    panel.select_device('lamp'); panel.show_page(4); setup = panel.lamp_local_setup
+    requests = []; setup.disconnectRequested.connect(lambda: requests.append(True))
+    setup.edit(); setup.more.setChecked(True)
+    QTest.mouseClick(setup.disconnect, Qt.MouseButton.LeftButton)
+    assert setup.forget_confirmation.isVisible() and requests == []
+    QTest.mouseClick(setup.confirm_forget, Qt.MouseButton.LeftButton)
+    assert requests == [True]
+
+
 def test_local_white_control_uses_percentage_not_guessed_kelvin(panel):
     state = lamp_state(); state.white_unit = '%'; state.kelvin = 20; state.minimum_kelvin = 0; state.maximum_kelvin = 100
     panel.render_lamp(state, True, False, 'Confirmado', {'provider': 'local'}, True)

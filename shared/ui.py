@@ -327,6 +327,8 @@ QPushButton:pressed {{ background: {SURFACE.name()}; }}
 QPushButton:focus, QComboBox:focus, QLineEdit:focus {{ border: 1px solid {ACCENT.name()}; }}
 QPushButton:disabled {{ color: {SUBTLE.name()}; background: {SURFACE.name()}; }}
 QPushButton#Primary {{ background: {ACCENT.name()}; color: {INK.name()}; font-weight: 600; }}
+QPushButton#Quiet {{ background: transparent; color: {MUTED.name()}; }}
+QPushButton#Quiet:hover {{ background: {SURFACE.name()}; color: {TEXT.name()}; }}
 QPushButton#Segment {{ background: transparent; padding: 0 2px; font-size: 12px; color: {MUTED.name()}; }}
 QPushButton#Segment[selected="true"] {{ color: {TEXT.name()}; font-weight: 600; }}
 QPushButton#Segment:disabled {{ color: {SUBTLE.name()}; }}
