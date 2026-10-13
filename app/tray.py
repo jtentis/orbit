@@ -2,10 +2,11 @@
 from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 import logging
-from PySide6.QtCore import QObject, Signal, QTimer, Qt, QUrl
-from PySide6.QtGui import QIcon, QPainter, QColor, QPixmap, QPen, QDesktopServices
+from PySide6.QtCore import QObject, Signal, QTimer, QUrl
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 from . import autostart
+from .icons import orbit_icon
 from windfree.device import Device
 from windfree.discovery import discover
 from shared.network import validate_host
@@ -17,24 +18,6 @@ from lamp.controller import LampController
 
 LOG = logging.getLogger(__name__)
 LOG.setLevel(logging.INFO)
-
-
-def tray_icon(state=None, online=False):
-    pixmap = QPixmap(64, 64); pixmap.fill(Qt.GlobalColor.transparent)
-    painter = QPainter(pixmap); painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-    color = QColor('#36b9e8') if online and state and state.power else QColor('#98a5b3')
-    painter.setPen(QPen(color, 4, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
-    for angle in (0, 60, 120):
-        painter.save(); painter.translate(32, 32); painter.rotate(angle)
-        painter.drawLine(0, -24, 0, 24)
-        for direction in (-1, 1):
-            y = direction*16
-            painter.drawLine(0, y, -7, y-direction*7); painter.drawLine(0, y, 7, y-direction*7)
-        painter.restore()
-    if not online:
-        painter.setPen(Qt.PenStyle.NoPen); painter.setBrush(QColor('#d56c30'))
-        painter.drawEllipse(46, 46, 14, 14)
-    painter.end(); return QIcon(pixmap)
 
 
 class Events(QObject):
@@ -86,7 +69,7 @@ class TrayApp(QObject):
         self.panel.motionRequested.connect(self.reduce_motion)
         self.panel.quitRequested.connect(self.app.quit)
         self.panel.logsRequested.connect(lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(DATA_DIR/'windfree.log'))))
-        self.tray = QSystemTrayIcon(tray_icon(), self)
+        self.tray = QSystemTrayIcon(orbit_icon(False), self)
         self.tray.activated.connect(self.activated)
         self.sync_panel(); self.tray.show()
         self.timer = QTimer(self); self.timer.setInterval(20000); self.timer.timeout.connect(self.poll); self.timer.start()
@@ -103,7 +86,7 @@ class TrayApp(QObject):
         self.panel.render(self.state, self.online, visible_busy, self.message, self.config,
                           autostart.enabled(), self.error, operation)
         self.sync_lamp()
-        self.tray.setIcon(tray_icon(self.state, self.online))
+        self.tray.setIcon(orbit_icon(self.online))
         if self.online and self.state:
             temp = f'{self.state.temperature:g} °{self.state.unit}' if self.state.temperature is not None else 'temperatura indisponível'
             self.tray.setToolTip(f'WindFree · {"Ligado" if self.state.power else "Desligado"} · {temp}\nClique para abrir os controles')

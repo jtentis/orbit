@@ -11,7 +11,9 @@ target.mkdir(parents=True, exist_ok=True)
 qt_license_directory = target / 'Qt'
 qt_license_directory.mkdir(exist_ok=True)
 for license_file in (root / 'assets' / 'licenses').glob('*.txt'):
-    shutil.copyfile(license_file, qt_license_directory / license_file.name)
+    license_directory = target / 'Lucide' if license_file.name == 'Lucide-ISC.txt' else qt_license_directory
+    license_directory.mkdir(exist_ok=True)
+    shutil.copyfile(license_file, license_directory / license_file.name)
 python_license = Path(sys.base_prefix) / 'LICENSE.txt'
 if python_license.exists():
     shutil.copyfile(python_license, target / 'Python-LICENSE.txt')

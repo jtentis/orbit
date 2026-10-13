@@ -12,9 +12,11 @@ def main():
     from PySide6.QtGui import QFont
     from PySide6.QtWidgets import QApplication, QSystemTrayIcon
     from app.tray import TrayApp
+    from app.icons import orbit_icon
     app = QApplication(sys.argv)
     app.setFont(QFont('Segoe UI', 10))
     app.setApplicationName('WindFree Tray')
+    app.setWindowIcon(orbit_icon())
     app.setQuitOnLastWindowClosed(False)
     lock = QLockFile(str(DATA_DIR / 'app.lock'))
     if not lock.tryLock(100):
