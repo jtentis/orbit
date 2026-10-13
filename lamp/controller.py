@@ -1,6 +1,8 @@
 """Independent lighting worker: cloud failures never block local AC controls."""
 from concurrent.futures import ThreadPoolExecutor
 import logging
+import time
+from uuid import uuid4
 from PySide6.QtCore import QObject, Signal, QTimer
 from .smartthings import SmartThingsLamp, AuthorizationError
 from .local import LocalLamp, discover_local
@@ -12,6 +14,7 @@ LOG.setLevel(logging.INFO)
 
 class LampEvents(QObject):
     done = Signal(str, object, object)
+    progress = Signal(str)
 
 
 class LampController(QObject):
@@ -28,9 +31,13 @@ class LampController(QObject):
         self.operation = None; self.configured = False; self.auth_failed = False
         self.message = 'Lâmpada ainda não configurada'
         self.queue = {}
+        self.request_times = {}
+        self.active_request = None
         self.local_failures = 0
         self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='lamp')
         self.events = LampEvents(); self.events.done.connect(self.finished)
+        self.events.progress.connect(self.command_progress)
+        self.local.on_progress = self.events.progress.emit
         self.timer = QTimer(self); self.timer.setInterval(30000); self.timer.timeout.connect(self.poll)
         self.timer.start()
         self.start_timer = QTimer(self); self.start_timer.setSingleShot(True)
@@ -39,8 +46,13 @@ class LampController(QObject):
     @property
     def info(self): return self.config.get('lamp', {})
 
+    def command_progress(self, message):
+        if self.busy and self.operation == 'command':
+            self.message = message; self.changed.emit()
+
     def submit(self, operation, work):
         if self.busy: return
+        submitted = time.perf_counter()
         self.busy = True; self.error = False; self.operation = operation
         self.message = {'authorize': 'Conectando conta e buscando lâmpadas…', 'discover': 'Buscando lâmpadas no SmartThings…',
                         'discover_local': 'Buscando dispositivos Tuya na rede…',
@@ -48,10 +60,13 @@ class LampController(QObject):
                         'command': 'Enviando e conferindo…', 'disconnect': 'Removendo conexão…', 'disconnect_cloud': 'Desconectando conta…'}[operation]
         self.changed.emit()
         def run():
+            LOG.info('[latency] operation=%s stage=worker_started queue_ms=%.1f', operation, (time.perf_counter()-submitted)*1000)
             try: self.events.done.emit(operation, work(), None)
             except Exception as error:
                 LOG.warning('Iluminação %s: %s', operation, type(error).__name__)
                 self.events.done.emit(operation, None, error)
+            finally:
+                LOG.info('[latency] operation=%s stage=worker_finished total_ms=%.1f', operation, (time.perf_counter()-submitted)*1000)
         self.executor.submit(run)
 
     def start(self):
@@ -130,14 +145,20 @@ class LampController(QObject):
             return connected, self.local.connect(connected, key)
         self.submit('connect', work)
 
-    def command(self, kind, value):
+    def command(self, kind, value, requested_at=None, request_id=None):
+        requested_at = requested_at or time.perf_counter(); request_id = request_id or uuid4().hex[:8]
+        LOG.info('[latency] id=%s kind=%s stage=ui_requested queued=%s', request_id, kind, self.busy)
         if self.busy:
             if self.operation in ('refresh', 'command'):
                 self.queue[kind] = value
+                self.request_times[kind] = (requested_at, request_id)
                 self.changed.emit()
             return
         if self.online:
-            self.submit('command', lambda: self.device.command(kind, value))
+            self.active_request = (requested_at, request_id)
+            if isinstance(self.device, LocalLamp):
+                self.submit('command', lambda: self.device.command(kind, value, request_id=request_id))
+            else: self.submit('command', lambda: self.device.command(kind, value))
 
     def disconnect(self):
         if self.busy: return
@@ -164,6 +185,7 @@ class LampController(QObject):
             self.message = str(error) if type(error) in (RuntimeError, ValueError, AuthorizationError) else 'Falha ao acessar a lâmpada. Tente conectar novamente.'
             if operation == 'command' and self.device.state: self.state = self.device.state
             self.queue.clear()
+            self.request_times.clear()
             if operation == 'refresh' and isinstance(self.device, LocalLamp):
                 self.local_failures += 1
                 if self.local_failures >= 3:
@@ -184,7 +206,8 @@ class LampController(QObject):
                 self.connect_to(selected); return
         elif operation == 'disconnect':
             self.config.pop('lamp', None); save_config(self.config)
-            if isinstance(self.device, LocalLamp): self.local = LocalLamp()
+            if isinstance(self.device, LocalLamp):
+                self.local = LocalLamp(); self.local.on_progress = self.events.progress.emit
             else: self.cloud = SmartThingsLamp()
             self.device = self.cloud; self.state = None
             self.online = self.configured = self.auth_failed = False
@@ -203,11 +226,22 @@ class LampController(QObject):
                 'SmartThings · estado confirmado' if self.state.health == 'ONLINE' else 'SmartThings · leitura recebida, conexão do dispositivo não informada')
             if operation == 'connect': self.connected.emit()
         if self.queue and not error and self.online:
+            self.changed.emit()
+            self.log_applied(operation, error)
             kind = next(iter(self.queue)); value = self.queue.pop(kind)
-            self.command(kind, value); return
+            timing = self.request_times.pop(kind, (None, None))
+            self.command(kind, value, *timing); return
         self.changed.emit()
+        self.log_applied(operation, error)
+
+    def log_applied(self, operation, error):
+        if operation == 'command' and self.active_request:
+            started, request_id = self.active_request
+            LOG.info('[latency] id=%s stage=ui_applied total_ms=%.1f success=%s',
+                     request_id, (time.perf_counter()-started)*1000, error is None)
+            self.active_request = None
 
     def shutdown(self):
-        self.start_timer.stop(); self.timer.stop(); self.queue.clear()
+        self.start_timer.stop(); self.timer.stop(); self.queue.clear(); self.request_times.clear()
         self.executor.submit(self.cloud.close); self.executor.submit(self.local.close)
         self.executor.shutdown(wait=False, cancel_futures=False)

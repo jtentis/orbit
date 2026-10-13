@@ -73,7 +73,7 @@ class LampPage(QWidget):
         self.panel = panel
         self.state = None; self.online = False; self.busy = False
         self.pending = {}; self.sent = {}
-        self.debounce = QTimer(self); self.debounce.setSingleShot(True); self.debounce.setInterval(420)
+        self.debounce = QTimer(self); self.debounce.setSingleShot(True); self.debounce.setInterval(120)
         self.debounce.timeout.connect(self.commit)
         layout = QVBoxLayout(self); layout.setContentsMargins(22, 18, 22, 16); layout.setSpacing(10)
         header = QHBoxLayout()
@@ -113,7 +113,7 @@ class LampPage(QWidget):
         self.kelvin.valueChanged.connect(lambda value: self.propose('kelvin', value))
         self.hue.valueChanged.connect(self.propose_color); self.saturation.valueChanged.connect(self.propose_color)
         for slider in self.sliders:
-            slider.sliderReleased.connect(self.schedule)
+            slider.sliderReleased.connect(self.commit)
         self.connect_button = QPushButton('Conectar lâmpada'); self.connect_button.setObjectName('Primary')
         self.connect_button.clicked.connect(self.setup); layout.addWidget(self.connect_button)
         layout.addStretch(1); panel.separator(layout)
@@ -179,7 +179,7 @@ class LampPage(QWidget):
                 selected = code
         self.white_presets.confirm(selected)
         self.update_values()
-        self.status.setText('Enviando · aguardando confirmação…' if busy and operation == 'command' else message)
+        self.status.setText(message)
         self.status.setStyleSheet(f'color: {(ERROR if error else SUBTLE).name()}; font-size: 11px;')
 
     def sync_slider(self, slider, minimum, maximum, value, kind):

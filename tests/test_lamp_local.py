@@ -19,9 +19,12 @@ class Bulb:
     def set_socketTimeout(self, _): pass
     def set_socketRetryLimit(self, _): pass
     def set_socketPersistent(self, _): pass
+    def set_sendWait(self, _): pass
     def set_version(self, version): self.version = version
-    def status(self): return self.responses.pop(0)
-    def set_multiple_values(self, payload): self.payloads.append(payload); return {}
+    def status(self):
+        if len(self.responses) > 1: return self.responses.pop(0)
+        return self.responses[0]
+    def set_multiple_values(self, payload, nowait=False): self.payloads.append(payload); return {}
     def close(self): self.closed = True
 
 
@@ -144,3 +147,83 @@ def test_local_white_mode_must_also_be_confirmed():
 def test_one_percent_adjustment_requires_changed_native_value():
     device, _ = local([read()]*5)
     with pytest.raises(RuntimeError, match='não confirmou'): device.command('kelvin', 21)
+
+
+def test_first_confirmation_has_no_compulsory_sleep():
+    changed = {**DPS, '22': 650}
+    device, _ = local([read(), read(changed)])
+    delays = []; device.sleep = delays.append
+    assert device.command('level', 65).level == 65
+    assert delays == []
+
+
+def test_partial_hardware_reply_confirms_brightness_without_losing_other_fields():
+    device, bulb = local([read(), {'dps': {'22': 650}}])
+    state = device.command('level', 65)
+    assert state.level == 65 and state.power and state.color_mode == 'white'
+    assert device.dps['24'] == DPS['24']
+    assert bulb.responses == [{'dps': {'22': 650}}]
+
+
+def test_cached_value_alone_cannot_confirm_a_repeated_command():
+    device, _ = local([read()] + [{'dps': {'22': 600}}]*10)
+    with pytest.raises(RuntimeError, match='não confirmou'): device.command('kelvin', 20)
+
+
+def test_expired_cache_reads_current_mode_before_encoding(monkeypatch):
+    rgb = {**DPS, '21': 'colour'}
+    changed = {**rgb, '24': '00b403e80320'}
+    device, bulb = local([read(), read(rgb), read(changed)])
+    monkeypatch.setattr('lamp.local.time.monotonic', lambda: 10**12)
+    assert device.command('level', 80).color_mode == 'color'
+    assert bulb.payloads == [{'24': '00b403e80320', '21': 'colour'}]
+
+
+def test_power_sends_without_preflight_even_after_idle(monkeypatch):
+    device, _ = local([read(), {'dps': {'20': False}}])
+    monkeypatch.setattr('lamp.local.time.monotonic', lambda: 10**12)
+    assert device.command('power', False).power is False
+
+
+class Notifications(Bulb):
+    def __init__(self, responses, notifications):
+        super().__init__(responses)
+        self.notifications = list(notifications)
+        self.retry = True; self.connection_timeout = 3
+    def set_retry(self, retry): self.retry = retry
+    def set_socketTimeout(self, timeout): self.connection_timeout = timeout
+    def receive(self): return self.notifications.pop(0) if self.notifications else None
+
+
+def test_empty_ack_is_followed_by_actual_notification_without_delay():
+    bulb = Notifications([read()], [None, {'dps': {'22': 650}}])
+    delays = []; device = LocalLamp(factory=lambda *_: bulb, sleep=delays.append)
+    device.connect(INFO, KEY)
+    assert device.command('level', 65).level == 65 and delays == []
+    assert bulb.retry is True and bulb.connection_timeout == 3
+
+
+def test_missing_notifications_fall_back_to_full_status():
+    bulb = Notifications([read(), read({**DPS, '22': 650})], [])
+    device = LocalLamp(factory=lambda *_: bulb, sleep=lambda _: None)
+    device.connect(INFO, KEY)
+    assert device.command('level', 65).level == 65
+
+
+def test_buffered_old_notification_cannot_confirm_new_command(monkeypatch):
+    bulb = Notifications([read()], [{'dps': {'22': 650}}] + [{'dps': {'23': 200}}]*7)
+    bulb.socket = object(); checks = iter([([bulb.socket], [], []), ([], [], [])])
+    monkeypatch.setattr('lamp.local.select.select', lambda *_: next(checks))
+    device = LocalLamp(factory=lambda *_: bulb, sleep=lambda _: None)
+    device.connect(INFO, KEY)
+    with pytest.raises(RuntimeError, match='não confirmou'): device.command('level', 65)
+    assert bulb.payloads == [{'22': 650}]
+
+
+def test_notification_errors_never_expose_key():
+    bulb = Notifications([read()], [{'Error': KEY}])
+    device = LocalLamp(factory=lambda *_: bulb)
+    device.connect(INFO, KEY)
+    with pytest.raises(RuntimeError) as caught: device.command('power', False)
+    assert KEY not in str(caught.value)
+    assert bulb.retry is True and bulb.connection_timeout == 3

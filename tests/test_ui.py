@@ -13,6 +13,26 @@ from app.panel import ControlPanel, popup_position
 from shared.ui import BG, MUTED, SUBTLE
 
 
+def test_lamp_slider_release_sends_immediately(panel):
+    panel.render_lamp(lamp_state(), True, False, 'Confirmado', {}, True)
+    page = panel.lamp_page; requests = []
+    page.commandRequested.connect(lambda *args: requests.append(args))
+    page.level.setSliderDown(True); page.level.setValue(70)
+    assert requests == []
+    page.level.setSliderDown(False)
+    assert requests == [('level', 70)]
+    assert page.state.level == 60
+
+
+def test_lamp_keyboard_burst_sends_latest_value_within_200ms(panel):
+    panel.render_lamp(lamp_state(), True, False, 'Confirmado', {}, True)
+    page = panel.lamp_page; requests = []
+    page.commandRequested.connect(lambda *args: requests.append(args))
+    for value in (65, 70, 75): page.level.setValue(value)
+    QTest.qWait(200)
+    assert requests == [('level', 75)] and page.state.level == 60
+
+
 @pytest.fixture(scope='module')
 def application():
     app = QApplication.instance() or QApplication([])
