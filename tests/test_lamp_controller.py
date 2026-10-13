@@ -2,9 +2,10 @@ import os
 os.environ['QT_QPA_PLATFORM'] = 'offscreen'
 import pytest
 from PySide6.QtWidgets import QApplication
-from windfree.lamp import LampState, AuthorizationError
-from windfree.lamp_local import LocalLamp
-from windfree.lamp_controller import LampController
+from lamp.state import LampState
+from lamp.smartthings import AuthorizationError
+from lamp.local import LocalLamp
+from lamp.controller import LampController
 
 
 @pytest.fixture
@@ -16,7 +17,7 @@ def controller():
 
 
 def test_local_scan_is_the_default_when_no_credentials_exist(controller, monkeypatch):
-    monkeypatch.setattr('windfree.lamp_controller.load_secret', lambda _: None)
+    monkeypatch.setattr('lamp.controller.load_secret', lambda _: None)
     operations = []; monkeypatch.setattr(controller, 'submit', lambda operation, work: operations.append(operation))
     controller.start()
     assert operations == ['discover_local']
@@ -38,7 +39,7 @@ def test_expired_cloud_token_does_not_stop_active_local_lamp(controller):
 
 
 def test_failed_authentication_never_saves_new_token(controller, monkeypatch):
-    saved = []; monkeypatch.setattr('windfree.lamp_controller.save_secret', lambda *args: saved.append(args))
+    saved = []; monkeypatch.setattr('lamp.controller.save_secret', lambda *args: saved.append(args))
     controller.cloud.authorize('old-fixture-token')
     def fail(): raise AuthorizationError('Token inválido.')
     monkeypatch.setattr(controller.cloud, 'discover', fail)

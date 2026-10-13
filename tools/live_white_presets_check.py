@@ -2,9 +2,9 @@
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from windfree.storage import load_config, load_secret
-from windfree.lamp_local import LocalLamp
-from windfree.lamp_ui import WHITE_PRESETS, white_preset_value
+from shared.storage import load_config, load_secret
+from lamp.local import LocalLamp
+from lamp.presets import WHITE_PRESETS, white_preset_value
 
 
 def main():

@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QFontDatabase, QFont
 from PySide6.QtTest import QTest
-from windfree.ui import ControlPanel
+from app.panel import ControlPanel
 from windfree.device import state_from_resources
 
 app = QApplication([])

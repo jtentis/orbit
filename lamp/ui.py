@@ -3,16 +3,9 @@ from __future__ import annotations
 from PySide6.QtCore import Qt, Signal, Property, QRectF, QTimer
 from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen, QRadialGradient
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSlider, QPushButton, QLineEdit
-from .ui import BG, SURFACE, BORDER, ACCENT, TEXT, SUBTLE, ERROR, IconButton, Choice, Segmented, animate
+from shared.ui import BG, SURFACE, BORDER, ACCENT, TEXT, SUBTLE, ERROR, IconButton, Choice, Segmented, animate
 
-# SLAMP1's current manufacturer specification: 3000–6500 K. Tuya reports
-# only a warm/cool scale, so the LAN midpoint is an estimate, not a measurement.
-WHITE_PRESETS = (('warm', 'Quente', 3000), ('neutral', 'Neutro', 4000), ('cool', 'Frio', 6500))
-
-
-def white_preset_value(state, kelvin):
-    value = round((kelvin-3000)/3500*100) if state.white_unit == '%' else kelvin
-    return value if state.minimum_kelvin <= value <= state.maximum_kelvin else None
+from .presets import WHITE_PRESETS, white_preset_value
 
 
 class BulbScene(QWidget):
@@ -37,7 +30,6 @@ class BulbScene(QWidget):
             fraction = min(1, max(0, state.kelvin/100 if state.white_unit == '%' else (state.kelvin-2000)/4500))
             self.color = QColor(255, round(186+fraction*69), round(110+fraction*145))
         else:
-            # Drivers can retain both RGB and white values without reporting mode.
             self.color = QColor('#fff3d5')
         target = (max(.15, (state.level if state.level is not None else 100)/100)
                   if state and state.power else 0.)
@@ -218,8 +210,6 @@ class LampPage(QWidget):
         preset = next((item for item in WHITE_PRESETS if item[0] == code), None)
         value = white_preset_value(self.state, preset[2]) if preset else None
         if value is None: return
-        # A click replaces a pending color/white adjustment and sends immediately.
-        # The selected segment still follows confirmed state from the device.
         self.pending.pop('color', None)
         self.kelvin.blockSignals(True); self.kelvin.setValue(value); self.kelvin.blockSignals(False)
         self.pending['kelvin'] = value

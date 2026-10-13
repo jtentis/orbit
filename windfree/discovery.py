@@ -10,13 +10,9 @@ from smartthings_local.protocol.ocf_discovery import discover_ocf_secure_ports, 
 from smartthings_local.protocol.dtls_probe import probe_dtls_ports
 from smartthings_local.protocol.dtls_session import DtlsCoapSession
 from .identity import client_identity
+from shared.network import validate_host
 
 
-def validate_host(host: str) -> str:
-    address = ipaddress.ip_address(host.strip())
-    if address.version != 4 or not address.is_private or address.is_loopback or address.is_unspecified or address.is_multicast:
-        raise ValueError('Informe um endereço IPv4 da sua rede local.')
-    return str(address)
 
 
 def inspect_host(host: str, timeout: float = 1.2) -> dict | None:
@@ -64,7 +60,6 @@ def inspect_secure_host(host: str, timeout: float = 1.2) -> dict | None:
 
 
 def lan_hosts() -> list[str]:
-    # Gateways exclude Hyper-V/WSL virtual networks. Bound discovery to 254 addresses per interface.
     command = ('Get-NetIPConfiguration | Where-Object {$_.IPv4DefaultGateway} | '
                'ForEach-Object {$_.IPv4Address | Select-Object IPAddress,PrefixLength} | ConvertTo-Json -Compress')
     result = subprocess.run(['powershell.exe', '-NoProfile', '-NonInteractive', '-Command', command],

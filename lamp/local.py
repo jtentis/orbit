@@ -3,12 +3,11 @@ import math
 import time
 import tinytuya
 import tinytuya.scanner
-from .discovery import validate_host
-from .lamp import LampState, command_payload, matches
+from shared.network import validate_host
+from .state import LampState, command_payload, matches
 
 
 def discover_local(expected_id=None):
-    # Never poll guessed devices or print keys from TinyTuya's optional device DB.
     devices = tinytuya.scanner.devices(verbose=False, scantime=8, poll=False,
                 forcescan=False, show_timer=False, wantids=[expected_id] if expected_id else None,
                 tuyadevices=[{'id': '', 'name': '', 'key': ''}])
@@ -37,7 +36,7 @@ class LocalLamp:
             raise ValueError('A chave local Tuya deve ter 16 bytes.')
         version = float(info.get('version', 3.5))
         if version not in (3.1, 3.2, 3.3, 3.4, 3.5): raise ValueError('Versão Tuya não suportada.')
-        candidate = self.factory(device_id, host, key)  # No constructor network IO.
+        candidate = self.factory(device_id, host, key)
         candidate.set_socketTimeout(3); candidate.set_socketRetryLimit(1)
         candidate.set_socketPersistent(False); candidate.set_version(version)
         previous = self.bulb, self.state, self.info, self.key, self.dps
@@ -93,7 +92,7 @@ class LocalLamp:
 
     def command(self, kind, value):
         before = self.refresh()
-        command_payload(kind, value, before, 'main')  # Same validation as cloud UI.
+        command_payload(kind, value, before, 'main')
         mapping = self.bulb.dpset
         maximum, minimum = mapping['value_max'], mapping['value_min']
         dp = lambda feature: str(mapping[feature])
@@ -101,7 +100,6 @@ class LocalLamp:
         elif kind == 'kelvin':
             payload = {dp('colourtemp'): round(value/100*maximum), dp('mode'): 'white'}
             if before.color_mode == 'color' and before.level is not None:
-                # Returning from RGB must not resurrect an old white brightness.
                 payload[dp('brightness')] = max(minimum, round(before.level/100*maximum))
         elif kind in ('level', 'color'):
             if kind == 'level' and before.color_mode == 'white':

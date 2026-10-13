@@ -12,14 +12,13 @@ from PySide6.QtGui import QFontDatabase, QFont
 from PySide6.QtWidgets import QApplication
 from PySide6.QtTest import QTest
 import imageio_ffmpeg
-import windfree.ui as ui
+import app.panel as ui
 from windfree.device import state_from_resources
 
 app = QApplication([])
 for name in ['segoeui.ttf', 'segoeuib.ttf', 'seguisb.ttf']:
     QFontDatabase.addApplicationFont('C:/Windows/Fonts/'+name)
 app.setFont(QFont('Segoe UI', 10)); app.setStyle('Fusion')
-# Only this demo ignores the host preference, so exported motion can be inspected.
 ui.windows_motion_enabled = lambda: True
 panel = ui.ControlPanel(); panel.resize(388,650)
 state = state_from_resources(json.loads(Path('tests/fixtures/ar12-controls.json').read_text()))

@@ -2,9 +2,9 @@
 from concurrent.futures import ThreadPoolExecutor
 import logging
 from PySide6.QtCore import QObject, Signal, QTimer
-from .lamp import SmartThingsLamp, AuthorizationError
-from .lamp_local import LocalLamp, discover_local
-from .storage import load_secret, save_secret, save_config, DATA_DIR
+from .smartthings import SmartThingsLamp, AuthorizationError
+from .local import LocalLamp, discover_local
+from shared.storage import load_secret, save_secret, save_config, DATA_DIR
 
 LOG = logging.getLogger(__name__)
 LOG.setLevel(logging.INFO)
@@ -50,7 +50,6 @@ class LampController(QObject):
         def run():
             try: self.events.done.emit(operation, work(), None)
             except Exception as error:
-                # Never log HTTP payloads, exception bodies or credential values.
                 LOG.warning('Iluminação %s: %s', operation, type(error).__name__)
                 self.events.done.emit(operation, None, error)
         self.executor.submit(run)
@@ -162,8 +161,6 @@ class LampController(QObject):
             cloud_setup = operation in ('authorize', 'discover') and isinstance(self.device, LocalLamp)
             if isinstance(error, AuthorizationError) and not cloud_setup: self.auth_failed = True
             if not isinstance(error, ValueError) and not cloud_setup: self.online = False
-            # Only our curated errors reach UI. Unexpected third-party exceptions
-            # may include request headers or other sensitive details.
             self.message = str(error) if type(error) in (RuntimeError, ValueError, AuthorizationError) else 'Falha ao acessar a lâmpada. Tente conectar novamente.'
             if operation == 'command' and self.device.state: self.state = self.device.state
             self.queue.clear()

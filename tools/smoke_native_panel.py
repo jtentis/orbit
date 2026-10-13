@@ -7,10 +7,10 @@ from PySide6.QtCore import QRect, QTimer, Qt
 from PySide6.QtGui import QGuiApplication, QFont
 from PySide6.QtWidgets import QApplication
 from PySide6.QtTest import QTest
-from windfree.ui import ControlPanel
+from app.panel import ControlPanel
 from windfree.device import Device
-from windfree.storage import load_config, load_secret
-from windfree.lamp_local import discover_local, LocalLamp
+from shared.storage import load_config, load_secret
+from lamp.local import discover_local, LocalLamp
 
 config = load_config()
 found_lamps = discover_local()
@@ -36,8 +36,8 @@ def inspect():
     panel.grab().save('assets/panel-live-preview.png')
     window_style = ctypes.windll.user32.GetWindowLongW(int(panel.winId()), -16)
     extended_style = ctypes.windll.user32.GetWindowLongW(int(panel.winId()), -20)
-    assert window_style & 0x80000000  # WS_POPUP
-    assert not extended_style & 0x00040000  # no WS_EX_APPWINDOW / taskbar entry
+    assert window_style & 0x80000000 # WS_POPUP
+    assert not extended_style & 0x00040000 # WS_EX_APPWINDOW
     assert area.contains(panel.geometry())
     assert panel.geometry().right() == area.right()
     assert panel.geometry().bottom() == area.bottom()

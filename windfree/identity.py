@@ -9,7 +9,7 @@ from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
-from .storage import load_secret, save_secret
+from shared.storage import load_secret, save_secret
 
 _IDENTITY_LOCK = threading.Lock()
 
@@ -24,7 +24,7 @@ def _load_or_create_identity() -> dict:
     if existing:
         return existing
     host = 'connect-v2.samsungiotcloud.com'
-    # Samsung serves a private chain; this reads only its public subject UUID.
+# Samsung uses a private chain; only its public subject UUID is read.
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     context.check_hostname = False
     context.verify_mode = ssl.CERT_NONE

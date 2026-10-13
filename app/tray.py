@@ -6,12 +6,14 @@ from PySide6.QtCore import QObject, Signal, QTimer, Qt, QUrl
 from PySide6.QtGui import QIcon, QPainter, QColor, QPixmap, QPen, QDesktopServices
 from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 from . import autostart
-from .device import Device
-from .discovery import discover, validate_host
-from .storage import DATA_DIR, load_config, save_config
-from .ui import ControlPanel, label
-from .lamp import TOKEN_PAGE
-from .lamp_controller import LampController
+from windfree.device import Device
+from windfree.discovery import discover
+from shared.network import validate_host
+from shared.storage import DATA_DIR, load_config, save_config
+from .panel import ControlPanel
+from windfree.ui import label
+from lamp.smartthings import TOKEN_PAGE
+from lamp.controller import LampController
 
 LOG = logging.getLogger(__name__)
 LOG.setLevel(logging.INFO)
@@ -171,7 +173,7 @@ class TrayApp(QObject):
             if operation != 'refresh' and not self.panel.isVisible():
                 self.tray.showMessage('WindFree', str(error), QSystemTrayIcon.MessageIcon.Warning, 6000)
             if operation == 'command' and self.device.resources:
-                from .device import state_from_resources
+                from windfree.device import state_from_resources
                 self.state = state_from_resources(self.device.resources)
         elif operation == 'discover':
             self.panel.set_found(result)

@@ -8,10 +8,7 @@ if (-not (Test-Path -LiteralPath '.venv/Scripts/python.exe')) {
 if ($LASTEXITCODE -ne 0) { throw 'Falha ao instalar dependências.' }
 & .venv/Scripts/python.exe -m pytest -q
 if ($LASTEXITCODE -ne 0) { throw 'Os testes falharam.' }
-# Qt needs the newer VC runtime shipped in its wheel. Put it at the archive root
-# so Windows loads it for Python first, before Qt modules enter the process.
-# Isolate DLL discovery from unrelated tools on PATH (e.g. Poppler/libheif can
-# carry old Windows API shims that must not enter this application's package).
+# Qt needs its bundled VC runtime; isolate DLL lookup from unrelated PATH tools.
 $windfreePreviousPath = $env:PATH
 try {
     $env:PATH = "$env:SystemRoot\System32;$env:SystemRoot;$PSScriptRoot\.venv\Scripts"

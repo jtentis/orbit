@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 import pytest
 from windfree.device import Device, command_payload, flatten_resources, state_from_resources, V, MODE, PRESET, FAN
-from windfree.discovery import validate_host
+from shared.network import validate_host
 
 
 @pytest.fixture

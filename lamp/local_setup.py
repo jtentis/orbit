@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLineEdit, QFileDialog
-from .ui import IconButton, Choice, SUBTLE, ERROR
+from shared.ui import IconButton, Choice, SUBTLE, ERROR
 
 
 class LocalLampSetup(QWidget):
@@ -53,7 +53,7 @@ class LocalLampSetup(QWidget):
     def set_found(self, devices, selected=None):
         self.found.clear(); self.found.addItem('Selecione o dispositivo' if devices else 'Nenhum dispositivo Tuya encontrado', None)
         for info in devices: self.found.addItem(info['name'], info)
-        if len(devices) == 1: self.found.setCurrentIndex(1)  # Discovery does not send actuator commands.
+        if len(devices) == 1: self.found.setCurrentIndex(1)
         elif selected:
             for index in range(1, self.found.count()):
                 if self.found.itemData(index).get('device_id') == selected.get('device_id'): self.found.setCurrentIndex(index); break

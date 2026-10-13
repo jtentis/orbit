@@ -2,8 +2,8 @@
 import copy
 import pytest
 import tinytuya
-from windfree.lamp_local import LocalLamp, discover_local
-from windfree.lamp import matches
+from lamp.local import LocalLamp, discover_local
+from lamp.state import matches
 
 DPS = {'20': True, '21': 'white', '22': 600, '23': 200, '24': '00b403e80258'}
 INFO = {'provider': 'local', 'device_id': 'testlamp01', 'host': '192.168.15.11', 'version': 3.5}

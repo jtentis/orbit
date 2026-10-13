@@ -9,7 +9,8 @@ from PySide6.QtGui import QFontDatabase
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 from windfree.device import state_from_resources
-from windfree.ui import ControlPanel, popup_position, BG, MUTED, SUBTLE
+from app.panel import ControlPanel, popup_position
+from shared.ui import BG, MUTED, SUBTLE
 
 
 @pytest.fixture(scope='module')
@@ -168,7 +169,7 @@ def test_secondary_text_contrast():
 
 
 def lamp_state():
-    from windfree.lamp import LampState
+    from lamp.smartthings import LampState
     return LampState(power=True, level=60, kelvin=3000, hue=60, saturation=100,
                      capabilities=frozenset({'switch', 'switchLevel', 'colorTemperature', 'colorControl'}))
 

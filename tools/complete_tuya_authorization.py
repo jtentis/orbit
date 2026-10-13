@@ -11,11 +11,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from tuya_sharing import LoginControl
 from tuya_sharing.customerapi import CustomerApi, CustomerTokenInfo
 from tuya_sharing.customerlogging import logger
-from windfree.storage import load_secret, save_secret, load_config, save_config, DATA_DIR
-from windfree.lamp_local import LocalLamp, discover_local
+from shared.storage import load_secret, save_secret, load_config, save_config, DATA_DIR
+from lamp.local import LocalLamp, discover_local
 
-CLIENT = 'HA_3y9q4ak7g4ephrvke'  # Public Tuya Home Assistant sharing channel.
-logger.disabled = True  # Upstream error logs can include decrypted credential data.
+CLIENT = 'HA_3y9q4ak7g4ephrvke'
+logger.disabled = True # SDK errors may include decrypted credentials.
 
 
 def bounded(session):
@@ -96,7 +96,6 @@ if __name__ == '__main__':
     try:
         result = main()
     except Exception as error:
-        # No raw third-party errors: some contain the entire HTTP payload.
         print('Falha segura ao concluir conexão:', type(error).__name__)
         result = 1
     sys.exit(result)

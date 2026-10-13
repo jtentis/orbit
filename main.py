@@ -1,7 +1,7 @@
 from logging.handlers import RotatingFileHandler
 import logging
 import sys
-from windfree.storage import DATA_DIR
+from shared.storage import DATA_DIR
 
 
 def main():
@@ -11,7 +11,7 @@ def main():
     from PySide6.QtCore import QLockFile
     from PySide6.QtGui import QFont
     from PySide6.QtWidgets import QApplication, QSystemTrayIcon
-    from windfree.tray import TrayApp
+    from app.tray import TrayApp
     app = QApplication(sys.argv)
     app.setFont(QFont('Segoe UI', 10))
     app.setApplicationName('WindFree Tray')

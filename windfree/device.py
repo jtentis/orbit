@@ -92,7 +92,7 @@ def state_from_resources(resources: dict) -> State:
     mode = resources.get(MODE, {})
     state.mode = first(mode.get(V + 'modes'))
     state.modes = list(mode.get(V + 'supportedModes', []))
-    # Samsung's Light token represents display-off mode, so its polarity is inverted.
+# Samsung Light encodes the display-off flag.
     light_option = next((o for o in mode.get(V + 'options', []) if o in ('Light_On', 'Light_Off')), None)
     if light_option is not None:
         state.display_light = light_option == 'Light_Off'
@@ -125,7 +125,6 @@ def command_payload(kind: str, value, resources: dict) -> tuple[str, dict]:
         if not isinstance(value, bool):
             raise ValueError('Estado da luz inválido.')
         if any(o in ('Light_On', 'Light_Off') for o in resources.get(MODE, {}).get(V + 'options', [])):
-            # The appliance merges this single option; do not resend sleep, sound or mode settings.
             return MODE, {V + 'options': ['Light_Off' if value else 'Light_On']}
         return '/light/vs/0', {'mode': 'On' if value else 'Off'}
     if kind == 'power' and state.power_writable:
@@ -156,7 +155,6 @@ def command_payload(kind: str, value, resources: dict) -> tuple[str, dict]:
             raise ValueError('Estado WindFree inválido.')
         if '/modeoption/windfree/vs/0' in resources:
             return '/modeoption/windfree/vs/0', {V + 'windfree': 'On' if value else 'Off'}
-        # NanoSleep preserves an active sleep timer rather than cancelling it.
         preset = 'NanoSleep' if value and state.preset in ('Sleep', 'NanoSleep') else ('Nano' if value else 'Off')
         if preset not in state.presets:
             raise ValueError('WindFree indisponível neste estado.')
@@ -177,8 +175,6 @@ class Device:
 
     def connect(self, host: str, expected_id: str | None = None, port: int | None = None) -> dict:
         validate_host(host)
-        # Remembered secure endpoints avoid public discovery replies from changing
-        # source ports, which Windows Firewall can block for a new executable.
         info = {'host': host, 'port': int(port), 'device_id': expected_id} if port else inspect_host(host, timeout=3)
         if not info:
             probe = probe_dtls_ports(host, (49154, 49153, 49155, 49152), timeout=2, retries=1)
@@ -227,7 +223,6 @@ class Device:
     def command(self, kind: str, value) -> State:
         if not self.session:
             raise ConnectionError('Sem conexão com o ar-condicionado.')
-        # Re-read before writes: the physical remote/SmartThings may have changed state.
         before = self.refresh()
         if kind not in ('power', 'display_light') and before.power is False:
             raise ValueError('Ligue o aparelho antes de ajustar a climatização.')
@@ -238,7 +233,6 @@ class Device:
         code, _ = self.session.post(path.strip('/').split('/'), cbor2.dumps(payload), timeout=8)
         if code >> 5 != 2:
             raise RuntimeError(f'O aparelho recusou o comando (CoAP {code >> 5}.{code & 31:02d}).')
-        # Samsung may ACK and silently ignore a command. Confirm readback after its settling period.
         for delay in (1.0, 3.0):
             time.sleep(delay)
             state = self.refresh()

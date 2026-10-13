@@ -3,6 +3,7 @@ from importlib import metadata
 from pathlib import Path
 import shutil
 import sys
+import zipfile
 
 root = Path(__file__).resolve().parents[1]
 target = root / 'dist' / 'THIRD_PARTY_LICENSES'
@@ -22,15 +23,13 @@ for name in ['PySide6-Essentials', 'shiboken6', 'smartthings-local', 'cbor2', 'c
             source = Path(distribution.locate_file(file))
             if source.is_file():
                 directory.mkdir(exist_ok=True)
-                # Keep paths distinct where distributions ship multiple Qt licenses.
                 destination = directory / str(file).replace('/', '_').replace('\\', '_')
                 shutil.copyfile(source, destination)
-shutil.copyfile(root / 'docs' / 'THIRD_PARTY_NOTICES.md', root / 'dist' / 'THIRD_PARTY_NOTICES.md')
-shutil.copyfile(root / 'docs' / 'README.md', root / 'dist' / 'README.md')
-# Bundle application source and build instructions, enabling Qt library replacement/rebuild.
-import zipfile
+for name in ('THIRD_PARTY_NOTICES.md', 'README.md'):
+    source = root / 'docs' / name
+    if source.exists(): shutil.copyfile(source, root / 'dist' / name)
 with zipfile.ZipFile(root / 'dist' / 'WindFreeTray-source.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
-    for directory in ['windfree', 'tests', 'tools', 'docs', 'assets']:
+    for directory in ['app', 'lamp', 'shared', 'windfree', 'tests', 'tools', 'docs', 'assets']:
         for file in (root / directory).rglob('*'):
             if file.is_file() and '__pycache__' not in file.parts:
                 archive.write(file, file.relative_to(root))

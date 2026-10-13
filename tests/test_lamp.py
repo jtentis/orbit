@@ -1,8 +1,8 @@
 """Protocol fixtures exercise actual HTTP mapping without changing hardware."""
 import copy
 import pytest
-from windfree.lamp import (SmartThingsLamp, LampState, AuthorizationError, lighting_components,
-                            state_from_status, command_payload, matches)
+from lamp.state import LampState, command_payload, matches
+from lamp.smartthings import SmartThingsLamp, AuthorizationError, lighting_components, state_from_status
 
 CAPS = frozenset({'switch', 'switchLevel', 'colorTemperature', 'colorControl'})
 DETAIL = {'deviceId': 'lamp-id', 'label': 'SLAMP1', 'components': [
@@ -151,7 +151,7 @@ def test_fresh_timestamp_confirms_switching_to_retained_white_value():
 
 
 def test_explicit_color_mode_prevents_false_white_confirmation():
-    from windfree.lamp import confirmed_change
+    from lamp.state import confirmed_change
     before = LampState(power=True, kelvin=3000, color_mode='color')
     after = LampState(power=True, kelvin=4000, color_mode='color')
     assert not confirmed_change(before, after, 'kelvin', 4000)

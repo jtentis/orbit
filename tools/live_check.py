@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from windfree.device import Device
-from windfree.storage import save_config
+from shared.storage import save_config
 
 device = Device()
 host = sys.argv[1]
@@ -13,7 +13,6 @@ try:
     original = device.refresh()
     save_config(info)
     print(f'Conectado: {host}; ligado={original.power}; temperatura={original.temperature}', flush=True)
-    # Verify power without starting the compressor or changing the actual power state.
     state = device.command('power', original.power)
     print(f'Comando de energia confirmado: {state.power}', flush=True)
     if original.power:
