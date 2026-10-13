@@ -2,6 +2,8 @@
 from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 import logging
+import time
+from uuid import uuid4
 from PySide6.QtCore import QObject, Signal, QTimer, QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QApplication, QSystemTrayIcon
@@ -22,6 +24,8 @@ LOG.setLevel(logging.INFO)
 
 class Events(QObject):
     done = Signal(str, object, object)
+    state_changed = Signal(object)
+    progress = Signal(str)
 
 
 class TrayApp(QObject):
@@ -43,6 +47,10 @@ class TrayApp(QObject):
         self.message = 'Conectando…' if self.config.get('host') else 'Buscando seu WindFree…'
         self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='windfree')
         self.events = Events(); self.events.done.connect(self.finished)
+        self.events.state_changed.connect(self.observed_state)
+        self.events.progress.connect(self.command_progress)
+        self.device.on_change = self.events.state_changed.emit
+        self.device.on_progress = self.events.progress.emit
         self.panel = ControlPanel()
         if show_lamp: self.panel.select_device('lamp')
         self.lamp = LampController(self.config, self)
@@ -62,7 +70,7 @@ class TrayApp(QObject):
         self.panel.lamp_local_setup.disconnectRequested.connect(self.lamp.disconnect)
         self.panel.lamp_local_setup.helpRequested.connect(lambda: QDesktopServices.openUrl(QUrl('https://github.com/jasonacox/tinytuya#setup-wizard---getting-local-keys')))
         self.panel.commandRequested.connect(self.command)
-        self.panel.refreshRequested.connect(self.poll)
+        self.panel.refreshRequested.connect(self.refresh)
         self.panel.searchRequested.connect(self.search)
         self.panel.connectRequested.connect(self.connect_to)
         self.panel.startupRequested.connect(self.toggle_startup)
@@ -72,7 +80,7 @@ class TrayApp(QObject):
         self.tray = QSystemTrayIcon(orbit_icon(False), self)
         self.tray.activated.connect(self.activated)
         self.sync_panel(); self.tray.show()
-        self.timer = QTimer(self); self.timer.setInterval(20000); self.timer.timeout.connect(self.poll); self.timer.start()
+        self.timer = QTimer(self); self.timer.setInterval(2500); self.timer.timeout.connect(self.poll); self.timer.start()
         self.app.aboutToQuit.connect(self.shutdown)
         QTimer.singleShot(300, self.start)
 
@@ -99,18 +107,33 @@ class TrayApp(QObject):
                                self.lamp.info, self.lamp.configured, self.lamp.error, self.lamp.operation,
                                bool(self.lamp.cloud.token))
 
+    def observed_state(self, state):
+        if self.online:
+            self.state = self.device.snapshot()
+            self.sync_panel()
+
+    def command_progress(self, message):
+        if self.operation == 'command':
+            self.message = message
+            self.sync_panel()
+
     def submit(self, operation, work):
         if self.busy: return
         self.busy = True; self.error = False; self.operation = operation
         self.message = {'connect': 'Conectando ao aparelho…', 'discover': 'Buscando na rede…',
                         'command': 'Enviando e conferindo…', 'refresh': 'Atualizando leitura…'}[operation]
         self.sync_panel()
+        submitted = time.perf_counter()
         def run():
+            started = time.perf_counter()
+            LOG.info('[latency] operation=%s stage=worker_started queue_ms=%.1f', operation, (started-submitted)*1000)
             try:
                 self.events.done.emit(operation, work(), None)
             except Exception as error:
                 LOG.warning('%s: %s: %s', operation, type(error).__name__, error)
                 self.events.done.emit(operation, None, error)
+            finally:
+                LOG.info('[latency] operation=%s stage=worker_finished total_ms=%.1f', operation, (time.perf_counter()-submitted)*1000)
         self.executor.submit(run)
 
     def start(self):
@@ -124,7 +147,7 @@ class TrayApp(QObject):
             self.message = str(error); self.error = True; self.sync_panel(); return
         def work():
             connected = self.device.connect(host, info.get('device_id'), info.get('port'))
-            return connected, self.device.refresh()
+            return connected, self.device.snapshot()
         self.submit('connect', work)
 
     def search(self):
@@ -132,16 +155,31 @@ class TrayApp(QObject):
 
     def poll(self):
         if self.busy or self.panel.pending_temperature is not None or self.panel.slider.isSliderDown(): return
-        if self.online: self.submit('refresh', self.device.refresh)
+        if self.online and not self.device.poll_needed(): return
+        if self.online: self.submit('refresh', self.device.poll)
         elif self.config.get('host'): self.connect_to(self.config)
         else: self.search()
 
-    def command(self, kind, value):
+    def refresh(self):
+        if self.online:
+            self.submit('refresh', self.device.refresh)
+        else:
+            self.poll()
+
+    def command(self, kind, value, requested_at=None, request_id=None):
+        requested_at = requested_at if requested_at is not None else time.perf_counter()
+        request_id = request_id or uuid4().hex[:8]
+        LOG.info('[latency] id=%s kind=%s stage=ui_requested queued=%s', request_id, kind, self.busy)
         if self.busy:
             if self.operation == 'refresh':
-                self.queued_command = (kind, value); self.sync_panel()
+                self.queued_command = (kind, value, requested_at, request_id); self.sync_panel()
+            else:
+                LOG.info('[latency] id=%s stage=discarded reason=busy', request_id)
             return
-        self.submit('command', lambda: self.device.command(kind, value))
+        self._command_requested_at = requested_at
+        self._request_id = request_id
+        command_id = self._request_id
+        self.submit('command', lambda: self.device.command(kind, value, request_id=command_id))
 
     def finished(self, operation, result, error):
         self.busy = False; self.error = error is not None
@@ -168,11 +206,14 @@ class TrayApp(QObject):
                 info, self.state = result; self.config.update(info); save_config(self.config)
                 self.connection_failures = 0
                 LOG.info('Conexão local estabelecida; energia=%s; temperatura=%s', self.state.power, self.state.temperature)
-            else: self.state = result
+            else: self.state = self.device.snapshot()
             self.online = True; self.message = 'Estado confirmado pelo aparelho'
         if queued and not error and self.online:
             self.command(*queued); return
         self.sync_panel()
+        if operation == 'command' and hasattr(self, '_command_requested_at'):
+            LOG.info('[latency] id=%s stage=ui_applied total_ms=%.1f success=%s',
+                     self._request_id, (time.perf_counter()-self._command_requested_at)*1000, error is None)
         if self.show_after_connect and self.online:
             self.show_after_connect = False
             if not self.panel.isVisible():

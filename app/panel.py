@@ -47,7 +47,7 @@ class ControlPanel(QWidget):
         self.active_device = 'ac'
         self._target_position = QPoint()
         self._closing = False
-        self.debounce = QTimer(self); self.debounce.setSingleShot(True); self.debounce.setInterval(420)
+        self.debounce = QTimer(self); self.debounce.setSingleShot(True); self.debounce.setInterval(120)
         self.debounce.timeout.connect(self.commit_temperature)
         self.opacity_animation = QPropertyAnimation(self, b'windowOpacity', self)
         self.opacity_animation.finished.connect(self.animation_finished)
@@ -117,7 +117,7 @@ class ControlPanel(QWidget):
         self.slider = QSlider(Qt.Orientation.Horizontal); self.slider.setAccessibleName('Temperatura desejada')
         self.slider.setFixedHeight(28)
         self.slider.valueChanged.connect(self.preview_temperature)
-        self.slider.sliderReleased.connect(self.schedule_temperature)
+        self.slider.sliderReleased.connect(self.commit_temperature)
         self.minus.clicked.connect(lambda: self.nudge_temperature(-1))
         self.plus.clicked.connect(lambda: self.nudge_temperature(1))
         slider_row.addWidget(self.minus); slider_row.addWidget(self.slider, 1); slider_row.addWidget(self.plus)
@@ -199,7 +199,7 @@ class ControlPanel(QWidget):
         layout.addWidget(self.preset_combo)
         self.settings_status = self.text('', 'Small'); self.settings_status.setWordWrap(True); layout.addWidget(self.settings_status)
         layout.addStretch(1)
-        logs = QPushButton('Abrir registro de erros'); logs.clicked.connect(self.logsRequested.emit); layout.addWidget(logs)
+        logs = QPushButton('Abrir logs e tempos'); logs.clicked.connect(self.logsRequested.emit); layout.addWidget(logs)
         quit_button = QPushButton('Sair do WindFree'); quit_button.clicked.connect(self.quitRequested.emit); layout.addWidget(quit_button)
         return page
 
@@ -237,7 +237,7 @@ class ControlPanel(QWidget):
         self.wind_toggle.setEnabled(climate and bool(state and state.windfree is not None))
         self.light_toggle.setEnabled(enabled and bool(state and state.display_light is not None))
         if busy and operation == 'command':
-            footer = 'Enviando · aguardando confirmação…'
+            footer = message
         elif error:
             footer = message
         elif not online:
@@ -288,6 +288,7 @@ class ControlPanel(QWidget):
         self.slider.setValue(self.slider.value()+direction)
 
     def commit_temperature(self):
+        self.debounce.stop()
         value = self.pending_temperature
         self.pending_temperature = None
         if self.state and self.online and not self.busy and value is not None and value != self.state.temperature:

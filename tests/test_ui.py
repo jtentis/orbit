@@ -79,10 +79,10 @@ def test_readback_after_failure_reverts_proposed_temperature(panel):
 def test_pending_temperature_remains_visible_until_readback(panel):
     panel.slider.setValue(9)
     panel.commit_temperature()
-    panel.render(panel.state, True, True, 'Enviando', {'reduce_motion': True}, operation='command')
+    panel.render(panel.state, True, True, 'Comando recebido · conferindo estado…', {'reduce_motion': True}, operation='command')
     assert panel.readout.value == 25
     assert panel.state.temperature == 24
-    assert 'confirmação' in panel.status.text()
+    assert 'conferindo' in panel.status.text()
     panel.state.temperature = 25
     panel.render(panel.state, True, False, 'Confirmado', {'reduce_motion': True})
     assert panel.readout.value == 25
@@ -138,6 +138,26 @@ def test_keyboard_enter_activates_light_toggle(panel):
     QTest.keyClick(panel.light_toggle, Qt.Key.Key_Return)
     assert requests == [('display_light',False)]
     assert panel.light_toggle.isChecked()
+
+
+def test_temperature_is_sent_immediately_when_slider_is_released(panel):
+    requests = []
+    panel.commandRequested.connect(lambda kind, value: requests.append((kind, value)))
+    panel.slider.setValue(panel.slider.value()+1)
+    panel.slider.sliderReleased.emit()
+    QTest.qWait(20)
+    assert requests == [('temperature', 25)]
+
+
+def test_repeated_readback_does_not_restart_the_same_toggle_animation(panel):
+    toggle = panel.light_toggle; toggle.reduced = False
+    toggle.confirm(False)
+    animation = toggle._animations['position']
+    animation.setCurrentTime(80)
+    position = toggle.position
+    toggle.confirm(False)
+    assert toggle._animations['position'] is animation
+    assert toggle.position == position and animation.currentTime() == 80
 
 
 @pytest.mark.parametrize('area,anchor', [(QRect(0,0,1920,1040),QRect(1810,1041,20,20)),

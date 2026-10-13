@@ -1,5 +1,6 @@
 import copy
 import json
+import cbor2
 from pathlib import Path
 import pytest
 from windfree.device import Device, command_payload, flatten_resources, state_from_resources, V, MODE, PRESET, FAN
@@ -82,12 +83,13 @@ def test_only_private_ipv4_can_be_targeted(host):
 def test_rejects_coap_success_when_value_did_not_change(resources, monkeypatch):
     resources['/power/vs/0'][V + 'power'] = 'On'
     class Session:
+        def get(self, path, **kwargs):
+            return 69, cbor2.dumps(resources['/'+'/'.join(path)])
         def post(self, *args, **kwargs):
             return 68, b''
     device = Device()
     device.session = Session()
     device.resources = resources
-    monkeypatch.setattr(device, 'refresh', lambda: state_from_resources(resources))
     monkeypatch.setattr('windfree.device.time.sleep', lambda _: None)
     with pytest.raises(RuntimeError, match='não confirmou'):
         device.command('temperature', 25)
@@ -96,13 +98,14 @@ def test_rejects_coap_success_when_value_did_not_change(resources, monkeypatch):
 def test_returns_confirmed_state(resources, monkeypatch):
     resources['/power/vs/0'][V + 'power'] = 'On'
     class Session:
+        def get(self, path, **kwargs):
+            return 69, cbor2.dumps(resources['/'+'/'.join(path)])
         def post(self, *args, **kwargs):
             resources['/temperature/desired/0']['temperature'] = 25
             return 68, b''
     device = Device()
     device.session = Session()
     device.resources = resources
-    monkeypatch.setattr(device, 'refresh', lambda: state_from_resources(resources))
     monkeypatch.setattr('windfree.device.time.sleep', lambda _: None)
     assert device.command('temperature', 25).temperature == 25
 
@@ -113,7 +116,7 @@ def test_windfree_in_auto_does_not_silently_change_mode(resources, monkeypatch):
     device = Device()
     device.session = object()
     device.resources = resources
-    monkeypatch.setattr(device, 'refresh', lambda: state_from_resources(resources))
+    monkeypatch.setattr(device, 'read_resource', lambda *args, **kwargs: state_from_resources(resources))
     with pytest.raises(ValueError, match='Resfriar'):
         device.command('windfree', True)
 
@@ -122,7 +125,7 @@ def test_cannot_adjust_temperature_while_appliance_is_off(resources, monkeypatch
     device = Device()
     device.session = object()
     device.resources = resources
-    monkeypatch.setattr(device, 'refresh', lambda: state_from_resources(resources))
+    monkeypatch.setattr(device, 'read_resource', lambda *args, **kwargs: state_from_resources(resources))
     with pytest.raises(ValueError, match='Ligue o aparelho'):
         device.command('temperature', 25)
 
@@ -133,7 +136,7 @@ def test_nano_preset_uses_same_mode_guard_as_windfree(resources, monkeypatch):
     device = Device()
     device.session = object()
     device.resources = resources
-    monkeypatch.setattr(device, 'refresh', lambda: state_from_resources(resources))
+    monkeypatch.setattr(device, 'read_resource', lambda *args, **kwargs: state_from_resources(resources))
     with pytest.raises(ValueError, match='Resfriar'):
         device.command('preset', 'Nano')
 
@@ -189,6 +192,8 @@ def test_light_control_not_offered_without_capability():
 
 def test_light_can_change_while_air_conditioner_is_off(resources, monkeypatch):
     class Session:
+        def get(self, path, **kwargs):
+            return 69, cbor2.dumps(resources['/'+'/'.join(path)])
         def post(self, path, body, **kwargs):
             import cbor2
             option = cbor2.loads(body)[V + 'options'][0]
@@ -197,7 +202,109 @@ def test_light_can_change_while_air_conditioner_is_off(resources, monkeypatch):
     device = Device()
     device.session = Session()
     device.resources = resources
-    monkeypatch.setattr(device, 'refresh', lambda: state_from_resources(resources))
     monkeypatch.setattr('windfree.device.time.sleep', lambda _: None)
     assert device.command('display_light', True).display_light is True
     assert state_from_resources(resources).power is False
+
+
+def test_immediate_readback_does_not_wait_or_read_the_full_device(resources, monkeypatch):
+    import cbor2
+    requests, delays = [], []
+    class Session:
+        def get(self, path, **kwargs):
+            href = '/'+'/'.join(path); requests.append(('GET', href))
+            data = [{'href': key, 'rep': value} for key, value in resources.items()] if href == '/device/0' else resources[href]
+            return 69, cbor2.dumps(data)
+        def post(self, path, body, **kwargs):
+            href = '/'+'/'.join(path); requests.append(('POST', href))
+            resources[href].update(cbor2.loads(body))
+            return 68, b''
+    device = Device(); device.session = Session(); device.resources = resources
+    monkeypatch.setattr('windfree.device.time.sleep', delays.append)
+    assert device.command('display_light', True).display_light is True
+    assert delays == []
+    assert ('GET', '/device/0') not in requests
+    assert requests[0] == ('POST', MODE)
+
+
+def test_notification_confirms_without_an_extra_get(resources):
+    device = Device(); device.resources = resources
+    class Session:
+        def get(self, *args, **kwargs):
+            pytest.fail('A fresh notification already confirmed the command')
+        def post(self, path, body, **kwargs):
+            rep = {**resources[MODE], **cbor2.loads(body)}
+            device._notification(device._generation, MODE, cbor2.dumps(rep))
+            return 68, b''
+    device.session = Session()
+    assert device.command('display_light', True).display_light is True
+    assert device.last_timing['source'] == 'notification'
+
+
+def test_cached_value_and_metadata_only_reply_do_not_confirm(resources, monkeypatch):
+    resources[MODE][V+'options'] = ['Light_Off']
+    class Session:
+        def get(self, *args, **kwargs): return 69, cbor2.dumps({'causeSource': 'test'})
+        def post(self, *args, **kwargs): return 68, b''
+    device = Device(); device.session = Session(); device.resources = resources
+    monkeypatch.setattr('windfree.device.time.sleep', lambda _: None)
+    with pytest.raises(RuntimeError, match='não confirmou'):
+        device.command('display_light', True)
+
+
+def test_stale_observe_registration_is_not_a_command_confirmation(resources, monkeypatch):
+    class Session:
+        def get(self, path, **kwargs): return 69, cbor2.dumps(resources['/'+'/'.join(path)])
+        def post(self, *args, **kwargs): return 68, b''
+    device = Device(); device.session = Session(); device.resources = resources
+    device._notification(device._generation, MODE, cbor2.dumps(resources[MODE]))
+    monkeypatch.setattr(device._condition, 'wait_for', lambda predicate, timeout: predicate())
+    monkeypatch.setattr(device._condition, 'wait', lambda _: None)
+    with pytest.raises(RuntimeError, match='não confirmou'):
+        device.command('display_light', True)
+
+
+def test_fresh_power_read_blocks_command_after_external_power_off(resources):
+    resources['/power/vs/0'][V+'power'] = 'On'
+    class Session:
+        def get(self, path, **kwargs):
+            assert path == ['power', 'vs', '0']
+            return 69, cbor2.dumps({V+'power': 'Off'})
+        def post(self, *args, **kwargs): pytest.fail('Off appliance cannot accept climate changes')
+    device = Device(); device.session = Session(); device.resources = resources
+    with pytest.raises(ValueError, match='Ligue o aparelho'):
+        device.command('temperature', 25)
+
+
+def test_snapshot_read_does_not_overwrite_a_newer_notification(resources):
+    original = copy.deepcopy(resources)
+    device = Device(); device.resources = resources
+    class Session:
+        def get(self, path, **kwargs):
+            device._notification(device._generation, MODE, cbor2.dumps({V+'options': ['Light_Off']}))
+            return 69, cbor2.dumps([{'href': href, 'rep': rep} for href, rep in original.items()])
+    device.session = Session()
+    assert device.refresh().display_light is True
+
+
+def test_background_poll_reads_only_one_resource(resources):
+    requests = []
+    class Session:
+        def get(self, path, **kwargs):
+            href = '/'+'/'.join(path); requests.append(href)
+            return 69, cbor2.dumps(resources[href])
+    device = Device(); device.resources = resources; device.session = Session()
+    for _ in range(3): device.poll()
+    assert len(requests) == 3 and len(set(requests)) == 3
+    assert '/device/0' not in requests
+
+
+def test_targeted_read_does_not_overwrite_a_newer_notification(resources):
+    original = copy.deepcopy(resources[MODE])
+    device = Device(); device.resources = resources
+    class Session:
+        def get(self, path, **kwargs):
+            device._notification(device._generation, MODE, cbor2.dumps({V+'options': ['Light_Off']}))
+            return 69, cbor2.dumps(original)
+    device.session = Session()
+    assert device.read_resource(MODE).display_light is True

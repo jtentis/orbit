@@ -64,6 +64,9 @@ def windows_motion_enabled():
 def animate(owner, property_name, target, duration=180, reduced=False):
     name = property_name.decode()
     animations = getattr(owner, '_animations', {})
+    previous = animations.get(name)
+    if previous and not reduced and owner.isVisible() and previous.endValue() == target and previous.state() == QPropertyAnimation.State.Running:
+        return
     previous = animations.pop(name, None)
     if previous:
         previous.stop()
