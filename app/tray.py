@@ -82,7 +82,13 @@ class TrayApp(QObject):
         self.sync_panel(); self.tray.show()
         self.timer = QTimer(self); self.timer.setInterval(2500); self.timer.timeout.connect(self.poll); self.timer.start()
         self.app.aboutToQuit.connect(self.shutdown)
+        self.executor.submit(self.repair_startup)
         QTimer.singleShot(300, self.start)
+
+    def repair_startup(self):
+        try: autostart.ensure_current()
+        except Exception as error:
+            LOG.warning('[startup] stage=registration_failed reason=%s', type(error).__name__)
 
     def activated(self, reason):
         if reason in (QSystemTrayIcon.ActivationReason.Trigger, QSystemTrayIcon.ActivationReason.Context):

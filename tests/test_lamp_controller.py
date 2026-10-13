@@ -54,3 +54,39 @@ def test_three_local_read_failures_trigger_identity_based_rediscovery(controller
     attempts = []; monkeypatch.setattr(controller, 'reconnect_local', lambda: attempts.append('reconnect'))
     for _ in range(3): controller.finished('refresh', None, RuntimeError('Sem resposta.'))
     assert attempts == ['reconnect']
+
+
+@pytest.mark.parametrize('failure', [RuntimeError('Wi-Fi ainda indisponível'), ValueError('Recursos ainda não informados')])
+def test_saved_lamp_retries_after_first_connection_failure(controller, monkeypatch, failure):
+    info = {'provider': 'local', 'device_id': 'fixture01', 'host': '192.168.1.2', 'version': 3.5}
+    controller.config['lamp'] = info
+    monkeypatch.setattr('lamp.controller.load_secret', lambda _: {'device_id': 'fixture01', 'key': 'fixturelocalkey1'})
+    operations = []; monkeypatch.setattr(controller, 'submit', lambda operation, work: operations.append(operation))
+    controller.start()
+    controller.finished('connect', None, failure)
+    assert controller.configured and controller.device is controller.local
+    assert controller.retry_timer.isActive()
+
+
+def test_rediscovery_after_failed_start_preserves_key_and_updates_address(controller, monkeypatch):
+    info = {'provider': 'local', 'device_id': 'fixture01', 'host': '192.168.1.2', 'version': 3.5, 'name': 'Meu quarto'}
+    controller.config['lamp'] = info
+    monkeypatch.setattr('lamp.controller.load_secret', lambda _: {'device_id': 'fixture01', 'key': 'fixturelocalkey1'})
+    works = []; monkeypatch.setattr(controller, 'submit', lambda operation, work: works.append(work))
+    controller.start()
+    monkeypatch.setattr('lamp.controller.discover_local', lambda identity: [{**info, 'host': '192.168.1.8'}])
+    calls = []
+    def connect(found, key):
+        calls.append((found, key)); return LampState(power=False, health='ONLINE')
+    monkeypatch.setattr(controller.local, 'connect', connect)
+    controller.reconnect_local(); found, state = works[-1]()
+    assert calls[-1][1] == 'fixturelocalkey1'
+    assert found['host'] == '192.168.1.8' and found['name'] == 'Meu quarto'
+
+
+def test_successful_retry_stops_retry_timer(controller, monkeypatch):
+    info = {'provider': 'local', 'device_id': 'fixture01'}
+    monkeypatch.setattr('lamp.controller.save_config', lambda _: None)
+    controller.retry_timer.start(1000)
+    controller.finished('connect', (info, LampState(power=False, health='ONLINE')), None)
+    assert not controller.retry_timer.isActive() and controller.online

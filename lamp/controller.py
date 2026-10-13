@@ -34,6 +34,10 @@ class LampController(QObject):
         self.request_times = {}
         self.active_request = None
         self.local_failures = 0
+        self.local_credentials = None
+        self.retry_count = 0
+        self.retry_timer = QTimer(self); self.retry_timer.setSingleShot(True)
+        self.retry_timer.timeout.connect(self.retry_local)
         self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='lamp')
         self.events = LampEvents(); self.events.done.connect(self.finished)
         self.events.progress.connect(self.command_progress)
@@ -77,6 +81,8 @@ class LampController(QObject):
                     raise ValueError()
             except Exception:
                 self.error = True; self.message = 'Conecte novamente a lâmpada com sua chave local.'; self.changed.emit(); return
+            self.local_credentials = (dict(self.info), secret['key'])
+            self.device = self.local; self.configured = True
             self.connect_local(self.info, secret['key']); return
         try: secret = load_secret('smartthings-lamp')
         except Exception:
@@ -129,6 +135,9 @@ class LampController(QObject):
 
     def poll(self):
         if self.busy or not self.configured or self.auth_failed: return
+        if isinstance(self.device, LocalLamp) and not self.online and self.local_credentials:
+            if not self.retry_timer.isActive(): self.schedule_retry()
+            return
         panel = getattr(self.parent(), 'panel', None)
         if panel and (panel.lamp_page.pending or any(s.isSliderDown() for s in panel.lamp_page.sliders)): return
         if isinstance(self.device, LocalLamp):
@@ -137,13 +146,25 @@ class LampController(QObject):
         elif self.info.get('device_id'): self.connect_to(self.info)
 
     def reconnect_local(self):
-        info, key = dict(self.info), self.local.key
+        info, key = self.local_credentials or (dict(self.info), self.local.key)
         def work():
             found = discover_local(info.get('device_id'))
-            if not found: raise RuntimeError('Lâmpada não encontrada na rede. Confira sua alimentação e Wi-Fi.')
-            connected = {**found[0], 'name': info.get('name', 'Smarteck SLAMP1')}
+            matched = next((item for item in found if item.get('device_id') == info.get('device_id')), None)
+            connected = {**(matched or info), 'provider': 'local', 'name': info.get('name', 'Smarteck SLAMP1')}
             return connected, self.local.connect(connected, key)
         self.submit('connect', work)
+
+    def schedule_retry(self):
+        delay = (1500, 3000, 6000, 15000, 30000)[min(self.retry_count, 4)]
+        self.retry_count += 1; self.retry_timer.start(delay)
+        self.message = 'Lâmpada sem conexão · tentando novamente automaticamente…'
+        LOG.info('[reconnect] stage=scheduled attempt=%s delay_ms=%s', self.retry_count, delay)
+
+    def retry_local(self):
+        if not self.local_credentials: return
+        if self.busy:
+            self.retry_timer.start(1000); return
+        self.reconnect_local()
 
     def command(self, kind, value, requested_at=None, request_id=None):
         requested_at = requested_at or time.perf_counter(); request_id = request_id or uuid4().hex[:8]
@@ -190,6 +211,8 @@ class LampController(QObject):
                 self.local_failures += 1
                 if self.local_failures >= 3:
                     self.local_failures = 0; self.reconnect_local(); return
+            if operation in ('connect', 'refresh', 'command') and self.local_credentials and not self.online and (operation == 'connect' or not isinstance(error, ValueError)):
+                self.schedule_retry()
         elif operation == 'disconnect_cloud':
             self.cloud = SmartThingsLamp(); self.message = 'Conta Samsung desconectada; controle local disponível.'
             self.found.emit([])
@@ -205,6 +228,7 @@ class LampController(QObject):
             if self.info.get('provider') != 'local' and selected:
                 self.connect_to(selected); return
         elif operation == 'disconnect':
+            self.retry_timer.stop(); self.local_credentials = None
             self.config.pop('lamp', None); save_config(self.config)
             if isinstance(self.device, LocalLamp):
                 self.local = LocalLamp(); self.local.on_progress = self.events.progress.emit
@@ -217,11 +241,13 @@ class LampController(QObject):
                 info, self.state = result; self.config['lamp'] = info; save_config(self.config)
                 self.device = self.local if info.get('provider') == 'local' else self.cloud
                 self.configured = True
+                if isinstance(self.device, LocalLamp): self.local_credentials = (dict(info), self.local.key)
                 LOG.info('Conexão da lâmpada estabelecida; transporte=%s; energia=%s; brilho=%s',
                           info.get('provider'), self.state.power, self.state.level)
             else: self.state = result
             self.online = True; self.auth_failed = False
             self.local_failures = 0
+            self.retry_timer.stop(); self.retry_count = 0
             self.message = ('Wi-Fi local · confirmado pela lâmpada' if isinstance(self.device, LocalLamp) else
                 'SmartThings · estado confirmado' if self.state.health == 'ONLINE' else 'SmartThings · leitura recebida, conexão do dispositivo não informada')
             if operation == 'connect': self.connected.emit()
@@ -242,6 +268,6 @@ class LampController(QObject):
             self.active_request = None
 
     def shutdown(self):
-        self.start_timer.stop(); self.timer.stop(); self.queue.clear(); self.request_times.clear()
+        self.start_timer.stop(); self.timer.stop(); self.retry_timer.stop(); self.queue.clear(); self.request_times.clear()
         self.executor.submit(self.cloud.close); self.executor.submit(self.local.close)
         self.executor.shutdown(wait=False, cancel_futures=False)
