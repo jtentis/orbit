@@ -1,0 +1,114 @@
+{
+  "/temperature/control/vs/0": {
+    "x.com.samsung.da.increment": "1"
+  },
+  "/mode/convenient/vs/0": {
+    "x.com.samsung.da.modes": "Off",
+    "x.com.samsung.da.supportedModes": [
+      "Off",
+      "Sleep",
+      "Quiet",
+      "Speed",
+      "Nano",
+      "NanoSleep"
+    ]
+  },
+  "/wind/strength/vs/0": {
+    "x.com.samsung.da.modes": "1",
+    "x.com.samsung.da.supportedModes": [
+      "0",
+      "1",
+      "2",
+      "3",
+      "4"
+    ],
+    "x.com.samsung.da.modesName": [
+      "Auto",
+      "Low",
+      "Mid",
+      "High",
+      "Turbo"
+    ]
+  },
+  "/wind/direction/vs/0": {
+    "x.com.samsung.da.modes": "Fix",
+    "x.com.samsung.da.supportedModes": [
+      "Fix",
+      "Up_And_Low",
+      "Left_And_Right",
+      "All"
+    ]
+  },
+  "/temperatures/vs/0": {
+    "x.com.samsung.da.items": [
+      {
+        "x.com.samsung.da.id": "0",
+        "x.com.samsung.da.description": "Temperature",
+        "x.com.samsung.da.desired": "24.0",
+        "x.com.samsung.da.current": "27.0",
+        "x.com.samsung.da.maximum": "30",
+        "x.com.samsung.da.minimum": "16",
+        "x.com.samsung.da.increment": "1.0",
+        "x.com.samsung.da.unit": "Celsius"
+      }
+    ]
+  },
+  "/temperature/current/0": {
+    "range": [
+      16,
+      30
+    ],
+    "units": "C",
+    "temperature": 27.0
+  },
+  "/temperature/desired/0": {
+    "range": [
+      16,
+      30
+    ],
+    "units": "C",
+    "temperature": 24.0
+  },
+  "/mode/vs/0": {
+    "x.com.samsung.da.supportedModes": [
+      "Auto",
+      "Cool",
+      "Dry",
+      "Wind"
+    ],
+    "x.com.samsung.da.modes": [
+      "Cool"
+    ],
+    "x.com.samsung.da.options": [
+      "Sleep_0",
+      "ArtificialWorking_Off",
+      "ComfortAICooling_Off",
+      "AiTempChanged_Off",
+      "AiTemp_240",
+      "OutdoorTemp_80",
+      "CoolCapa_35",
+      "WarmCapa_0",
+      "Light_On",
+      "Volume_Mute",
+      "StopAutoClean_Idle",
+      "Autoclean_Off",
+      "DiagnosisAI_Off",
+      "ProgressDiagnosisAI_0",
+      "ResultDiagnosisAI_Normal",
+      "OptionCode_52344",
+      "ExtendOptionCode_230029",
+      "RacInfo_None",
+      "UpdateAllow_NotAllowed",
+      "DurationOn_0",
+      "WelcomeCoolingState_Off"
+    ]
+  },
+  "/power/vs/0": {
+    "x.com.samsung.da.power": "Off",
+    "causeSource": "SMTS",
+    "operationNumber": "7"
+  },
+  "/power/0": {
+    "value": false
+  }
+}

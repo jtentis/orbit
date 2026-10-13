@@ -1,0 +1,11 @@
+.venv/
+.research/
+__pycache__/
+.pytest_cache/
+build/
+dist/
+*.spec
+*.pem
+*.key
+local-report.json
+docs/
