@@ -2,12 +2,13 @@
 from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 import logging
+import threading
 import time
 from uuid import uuid4
 from PySide6.QtCore import QObject, Signal, QTimer, QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QApplication, QSystemTrayIcon
-from . import autostart
+from . import autostart, updater
 from .icons import orbit_icon
 from aircon.device import Device
 from aircon.discovery import discover
@@ -26,6 +27,7 @@ class Events(QObject):
     done = Signal(str, object, object)
     state_changed = Signal(object)
     progress = Signal(str)
+    update_ready = Signal(object)
 
 
 class TrayApp(QObject):
@@ -85,6 +87,30 @@ class TrayApp(QObject):
         self.app.aboutToQuit.connect(self.shutdown)
         self.executor.submit(self.repair_startup)
         QTimer.singleShot(300, self.start)
+        if updater.enabled():
+            self.events.update_ready.connect(self.apply_update)
+            self.update_timer = QTimer(self); self.update_timer.setInterval(3600_000)
+            self.update_timer.timeout.connect(self.check_update); self.update_timer.start()
+            QTimer.singleShot(60_000, self.check_update)
+
+    def check_update(self):
+        def run():
+            try: staged = updater.download_update()
+            except Exception as error:
+                LOG.warning('[update] stage=check_failed reason=%s: %s', type(error).__name__, error); return
+            if staged: self.events.update_ready.emit(staged)
+        threading.Thread(target=run, name='update', daemon=True).start()
+
+    def apply_update(self, staged):
+        self.update_timer.stop()
+        # Background reads may be interrupted; a user's command must finish first.
+        if self.panel.isVisible() or 'command' in (self.busy and self.operation, self.lamp.busy and self.lamp.operation):
+            QTimer.singleShot(60_000, lambda: self.apply_update(staged)); return
+        try: updater.install(staged)
+        except OSError as error:
+            LOG.warning('[update] stage=install_failed reason=%s: %s', type(error).__name__, error)
+            self.update_timer.start(); return
+        self.app.quit()
 
     def repair_startup(self):
         try: autostart.ensure_current()

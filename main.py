@@ -24,7 +24,8 @@ def main():
     app.setWindowIcon(orbit_icon())
     app.setQuitOnLastWindowClosed(False)
     lock = QLockFile(str(DATA_DIR / 'app.lock'))
-    if not lock.tryLock(100):
+    # After a self-update the previous process may still be shutting down.
+    if not lock.tryLock(30000 if '--after-update' in sys.argv else 100):
         LOG.info('[startup] stage=already_running')
         return 0
     if not QSystemTrayIcon.isSystemTrayAvailable():

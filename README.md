@@ -75,7 +75,9 @@ Medições na rede e nos aparelhos de teste. A latência varia com a rede, o est
 
 ### Executável
 
-Depois de gerar a distribuição, abra **`dist/Orbit.exe`**. O app permanece na bandeja, junto ao relógio, sem uma janela principal na barra de tarefas.
+Baixe o **`Orbit.exe`** da [última release](https://github.com/jtentis/orbit/releases/latest) e abra. O app permanece na bandeja, junto ao relógio, sem uma janela principal na barra de tarefas. Guarde o executável numa pasta em que seu usuário possa escrever, como `%LOCALAPPDATA%\Programs\Orbit`, para que ele consiga se atualizar.
+
+Cada push na `main` testa, compila e publica uma release `build-N`. O Orbit consulta a release mais recente um minuto após abrir e depois a cada hora. Quando há uma versão nova, ele baixa e confere o SHA-256, espera o painel estar fechado e sem comando em andamento, troca o executável e reinicia sozinho. Builds locais (`build.ps1`) e a execução pelo código não se atualizam.
 
 1. Clique no ícone de órbita e escolha **Ar-condicionado** ou **Lâmpada**.
 2. No ar-condicionado, abra a configuração e use a busca ou informe o IP.
@@ -103,7 +105,7 @@ Para acompanhar erros no terminal, use `.venv\Scripts\python.exe main.py`.
 .\build.ps1
 ```
 
-O build gera `dist/Orbit.exe`, o código-fonte em `dist/Orbit-source.zip`, o README, os previews e as licenças das dependências. A pasta `docs/` é opcional e fica fora do Git; o build funciona sem ela.
+O build gera `dist/Orbit.exe`, o código-fonte em `dist/Orbit-source.zip`, o README, os previews e as licenças das dependências. A pasta `docs/` é opcional e fica fora do Git; o build funciona sem ela. O workflow `.github/workflows/release.yml` roda o mesmo `build.ps1` no GitHub Actions e grava o número do build em `app/version.py`.
 
 ### Gerar os previews
 
