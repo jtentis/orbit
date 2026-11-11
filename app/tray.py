@@ -27,7 +27,7 @@ class Events(QObject):
     done = Signal(str, object, object)
     state_changed = Signal(object)
     progress = Signal(str)
-    update_ready = Signal(object)
+    update_result = Signal(str, object)
 
 
 class TrayApp(QObject):
@@ -87,28 +87,46 @@ class TrayApp(QObject):
         self.app.aboutToQuit.connect(self.shutdown)
         self.executor.submit(self.repair_startup)
         QTimer.singleShot(300, self.start)
+        self.manual_check = False
+        self.panel.updateRequested.connect(self.manual_update)
+        self.events.update_result.connect(self.update_finished)
         if updater.enabled():
-            self.events.update_ready.connect(self.apply_update)
             self.update_timer = QTimer(self); self.update_timer.setInterval(3600_000)
             self.update_timer.timeout.connect(self.check_update); self.update_timer.start()
             QTimer.singleShot(60_000, self.check_update)
 
-    def check_update(self):
+    def manual_update(self):
+        if not updater.enabled():
+            self.panel.set_update_state('Só no executável publicado', False); return
+        self.check_update(manual=True)
+
+    def check_update(self, manual=False):
+        self.manual_check = manual
+        if manual: self.panel.set_update_state('Verificando…', False)
         def run():
             try: staged = updater.download_update()
             except Exception as error:
-                LOG.warning('[update] stage=check_failed reason=%s: %s', type(error).__name__, error); return
-            if staged: self.events.update_ready.emit(staged)
+                LOG.warning('[update] stage=check_failed reason=%s: %s', type(error).__name__, error)
+                self.events.update_result.emit('error', None); return
+            self.events.update_result.emit('ready' if staged else 'none', staged)
         threading.Thread(target=run, name='update', daemon=True).start()
+
+    def update_finished(self, kind, staged):
+        if kind == 'ready': self.apply_update(staged); return
+        if not self.manual_check: return
+        self.panel.set_update_state(f'Build {updater.BUILD} · o mais recente' if kind == 'none'
+                                    else 'Não foi possível verificar', True)
 
     def apply_update(self, staged):
         self.update_timer.stop()
-        # Background reads may be interrupted; a user's command must finish first.
-        if self.panel.isVisible() or 'command' in (self.busy and self.operation, self.lamp.busy and self.lamp.operation):
+        # Background reads may be interrupted; a user's command and an open panel must not be.
+        if 'command' in (self.busy and self.operation, self.lamp.busy and self.lamp.operation) or (self.panel.isVisible() and not self.manual_check):
             QTimer.singleShot(60_000, lambda: self.apply_update(staged)); return
+        self.panel.hide()
         try: updater.install(staged)
         except OSError as error:
             LOG.warning('[update] stage=install_failed reason=%s: %s', type(error).__name__, error)
+            self.panel.show(); self.panel.set_update_state('Não foi possível atualizar', True)
             self.update_timer.start(); return
         self.app.quit()
 

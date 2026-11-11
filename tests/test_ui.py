@@ -448,3 +448,18 @@ def test_failed_white_preset_restores_confirmed_slider_and_selection(panel):
     assert page.kelvin.value() == 6500 and page.white_presets.current == 0
     panel.render_lamp(state, True, False, 'Não confirmado', {}, True, error=True)
     assert page.kelvin.value() == 3000 and page.white_presets.current == 0
+
+
+def test_settings_update_button_requests_a_check(panel):
+    requests = []
+    panel.updateRequested.connect(lambda: requests.append('update'))
+    panel.show_page(1)
+    QTest.mouseClick(panel.update_button, Qt.MouseButton.LeftButton)
+    assert requests == ['update']
+
+
+def test_update_button_shows_progress_and_latest_build(panel):
+    panel.set_update_state('Verificando…', False)
+    assert panel.update_status.text() == 'Verificando…' and not panel.update_button.isEnabled()
+    panel.set_update_state('Build 7 · o mais recente')
+    assert panel.update_status.text() == 'Build 7 · o mais recente' and panel.update_button.isEnabled()

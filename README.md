@@ -77,7 +77,7 @@ Medições na rede e nos aparelhos de teste. A latência varia com a rede, o est
 
 Baixe o **`Orbit.exe`** da [última release](https://github.com/jtentis/orbit/releases/latest) e abra. O app permanece na bandeja, junto ao relógio, sem uma janela principal na barra de tarefas. Guarde o executável numa pasta em que seu usuário possa escrever, como `%LOCALAPPDATA%\Programs\Orbit`, para que ele consiga se atualizar.
 
-Cada push na `main` testa, compila e publica uma release `build-N`. O Orbit consulta a release mais recente um minuto após abrir e depois a cada hora. Quando há uma versão nova, ele baixa e confere o SHA-256, espera o painel estar fechado e sem comando em andamento, troca o executável e reinicia sozinho. Builds locais (`build.ps1`) e a execução pelo código não se atualizam.
+Cada push na `main` testa, compila e publica uma release `build-N`. O Orbit consulta a release mais recente um minuto após abrir e depois a cada hora. Quando há uma versão nova, ele baixa e confere o SHA-256, espera o painel estar fechado e sem comando em andamento, troca o executável e reinicia sozinho. O build instalado aparece em **Configurações**, ao lado de **Verificar atualizações**, que procura e aplica a atualização na hora. Builds locais (`build.ps1`) e a execução pelo código não se atualizam.
 
 1. Clique no ícone de órbita e escolha **Ar-condicionado** ou **Lâmpada**.
 2. No ar-condicionado, abra a configuração e use a busca ou informe o IP.

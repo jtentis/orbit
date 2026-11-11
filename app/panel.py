@@ -16,6 +16,7 @@ from shared.network import validate_host
 from aircon.ui import LABELS, label, TemperatureReadout, AirConditioner
 from lamp.ui import LampPage, LampSetup
 from lamp.local_setup import LocalLampSetup
+from .version import BUILD
 
 
 def popup_position(anchor: QRect, available: QRect, width: int, height: int):
@@ -32,6 +33,7 @@ class ControlPanel(QWidget):
     motionRequested = Signal(bool)
     quitRequested = Signal()
     logsRequested = Signal()
+    updateRequested = Signal()
 
     def __init__(self):
         super().__init__(None, Qt.WindowType.Popup | Qt.WindowType.FramelessWindowHint)
@@ -199,9 +201,20 @@ class ControlPanel(QWidget):
         layout.addWidget(self.preset_combo)
         self.settings_status = self.text('', 'Small'); self.settings_status.setWordWrap(True); layout.addWidget(self.settings_status)
         layout.addStretch(1)
+        actions = QHBoxLayout()
+        self.update_status = self.text(f'Build {BUILD}' if BUILD else 'Cópia local', 'Muted')
+        self.update_status.setToolTip('O Orbit verifica atualizações ao abrir e a cada hora.')
+        actions.addWidget(self.update_status, 1)
+        self.update_button = QPushButton('Verificar atualizações'); self.update_button.setObjectName('Quiet')
+        self.update_button.setToolTip('Procura uma versão publicada mais nova e atualiza agora.')
+        self.update_button.clicked.connect(self.updateRequested.emit); actions.addWidget(self.update_button)
+        layout.addLayout(actions)
         logs = QPushButton('Abrir logs e tempos'); logs.clicked.connect(self.logsRequested.emit); layout.addWidget(logs)
         quit_button = QPushButton('Sair do Orbit'); quit_button.clicked.connect(self.quitRequested.emit); layout.addWidget(quit_button)
         return page
+
+    def set_update_state(self, status, enabled=True):
+        self.update_status.setText(status); self.update_button.setEnabled(enabled)
 
     def fill_combo(self, combo, choices, selected):
         old = [combo.itemData(i) for i in range(combo.count())]
