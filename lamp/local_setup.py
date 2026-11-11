@@ -85,7 +85,7 @@ class LocalLampSetup(QWidget):
 
     def back(self):
         if self.saved and self.editing: self.opened(); self.change.setFocus()
-        else: self.panel.show_page(2)
+        else: self.panel.back_from_lamp()
 
     def toggle_more(self, checked):
         self.advanced.setVisible(checked)

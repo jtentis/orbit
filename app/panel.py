@@ -64,8 +64,11 @@ class ControlPanel(QWidget):
         selector_row = QHBoxLayout(); selector_row.setContentsMargins(22, 12, 22, 0)
         self.devices = Segmented(); self.devices.setAccessibleName('Dispositivo a controlar')
         self.devices.setFixedHeight(34)
-        self.devices.configure([('ac', 'Ar-condicionado'), ('lamp', 'Lâmpada')]); self.devices.confirm('ac')
-        self.devices.selected.connect(self.select_device); selector_row.addWidget(self.devices)
+        self.devices.configure([('ac', 'Ar-condicionado')]); self.devices.confirm('ac')
+        self.devices.selected.connect(self.select_device); selector_row.addWidget(self.devices, 1)
+        self.add_device = IconButton('plus', 'Adicionar lâmpada', size=30)
+        self.add_device.clicked.connect(self.add_lamp)
+        selector_row.addSpacing(8); selector_row.addWidget(self.add_device)
         root.addLayout(selector_row)
         content_layout.addWidget(self.pages); self.scroll.setWidget(self.content); root.addWidget(self.scroll)
         self.control_page = self.build_controls()
@@ -355,7 +358,26 @@ class ControlPanel(QWidget):
         self.active_device = code; self.devices.confirm(code)
         self.show_page(2 if code == 'lamp' else 0)
 
+    def add_lamp(self):
+        self.active_device = 'lamp'; self.devices.confirm('lamp'); self.show_page(4)
+
+    def back_from_lamp(self):
+        if 'lamp' in self.devices.codes: self.show_page(2)
+        else: self.select_device('ac')
+
+    def sync_devices(self, lamp_added):
+        """The lamp only becomes a device after it is configured with a key or account."""
+        self.add_device.setVisible(not lamp_added)
+        codes = ['ac', 'lamp'] if lamp_added else ['ac']
+        if self.devices.codes == codes: return
+        self.devices.configure([(code, 'Lâmpada' if code == 'lamp' else 'Ar-condicionado') for code in codes])
+        if self.active_device not in codes:
+            self.active_device = 'ac'
+            if self.pages.currentIndex() in (2, 3): self.show_page(0)
+        self.devices.confirm(self.active_device)
+
     def render_lamp(self, state, online, busy, message, info, configured, error=False, operation=None, cloud_configured=None):
+        self.sync_devices(bool(info))  # a saved connection is what turns the lamp into a device
         self.lamp_page.render(state, online, busy, message, info, configured, error, operation)
         self.lamp_setup.render(busy, message, configured if cloud_configured is None else cloud_configured, info, error, operation)
         self.lamp_local_setup.render(busy, message, info, error, operation, configured=configured, online=online)

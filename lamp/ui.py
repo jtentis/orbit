@@ -244,7 +244,7 @@ class LampSetup(QWidget):
         super().__init__(); self.setObjectName('Page')
         layout = QVBoxLayout(self); layout.setContentsMargins(22, 16, 22, 16); layout.setSpacing(9)
         header = QHBoxLayout(); back = IconButton('back', 'Voltar à lâmpada', size=30)
-        back.clicked.connect(lambda: panel.show_page(2)); header.addWidget(back)
+        back.clicked.connect(panel.back_from_lamp); header.addWidget(back)
         header.addWidget(panel.text('Conectar lâmpada', 'Title'), 1)
         close = IconButton('close', 'Fechar painel', size=30); close.clicked.connect(panel.dismiss); header.addWidget(close); layout.addLayout(header)
         intro = panel.text('Use a mesma conta Samsung em que sua SLAMP1 aparece no SmartThings. A conexão usa a internet e dispensa o IP.', 'Muted')

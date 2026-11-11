@@ -1,4 +1,5 @@
 """Interaction tests use the actual popup widgets; no device commands are connected."""
+LAMP = {'provider': 'local', 'device_id': 'fixturelamp', 'host': '192.168.15.11', 'version': 3.5, 'name': 'Lâmpada'}
 import os
 os.environ['QT_QPA_PLATFORM'] = 'offscreen'
 import json
@@ -10,7 +11,7 @@ from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 from aircon.device import state_from_resources
 from app.panel import ControlPanel, popup_position
-from shared.ui import BG, MUTED, SUBTLE
+from shared.ui import BG, MUTED, SUBTLE, IconButton
 
 
 def test_lamp_slider_release_sends_immediately(panel):
@@ -215,6 +216,7 @@ def lamp_state():
 
 
 def test_device_selector_changes_page_without_sending_commands(panel):
+    panel.render_lamp(None, False, False, 'Conta ainda não conectada', LAMP, True)
     requests = []
     panel.commandRequested.connect(lambda *args: requests.append(args))
     panel.lamp_page.commandRequested.connect(lambda *args: requests.append(args))
@@ -463,3 +465,20 @@ def test_update_button_shows_progress_and_latest_build(panel):
     assert panel.update_status.text() == 'Verificando…' and not panel.update_button.isEnabled()
     panel.set_update_state('Build 7 · o mais recente')
     assert panel.update_status.text() == 'Build 7 · o mais recente' and panel.update_button.isEnabled()
+
+
+def test_lamp_only_becomes_a_device_after_it_is_added(panel):
+    assert panel.devices.codes == ['ac'] and panel.add_device.isVisible()
+    panel.render_lamp(lamp_state(), True, False, 'Confirmado', LAMP, True)
+    assert panel.devices.codes == ['ac', 'lamp'] and not panel.add_device.isVisible()
+    panel.render_lamp(None, False, False, 'Lâmpada ainda não configurada', {}, False)
+    assert panel.devices.codes == ['ac'] and panel.add_device.isVisible()
+
+
+def test_add_button_opens_and_leaves_the_lamp_commissioning(panel):
+    QTest.mouseClick(panel.add_device, Qt.MouseButton.LeftButton)
+    assert panel.pages.currentIndex() == 4 and panel.active_device == 'lamp'
+    back = next(button for button in panel.lamp_local_setup.findChildren(IconButton)
+                if button.accessibleName() == 'Voltar à lâmpada')
+    QTest.mouseClick(back, Qt.MouseButton.LeftButton)
+    assert panel.pages.currentIndex() == 0 and panel.active_device == 'ac'

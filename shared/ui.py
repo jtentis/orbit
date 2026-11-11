@@ -244,7 +244,7 @@ class Segmented(QWidget):
             return
         self.codes = codes
         while self.layout_.count():
-            item = self.layout_.takeAt(0); item.widget().deleteLater()
+            item = self.layout_.takeAt(0); item.widget().hide(); item.widget().deleteLater()
         self.buttons = []
         for code, caption in choices:
             button = QPushButton(caption)
