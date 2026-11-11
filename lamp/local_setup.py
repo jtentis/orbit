@@ -122,7 +122,10 @@ class LocalLampSetup(QWidget):
     def import_key(self):
         if not self.info:
             self.status.show(); self.status.setText('Primeiro selecione o dispositivo encontrado.'); return
-        filename, _ = QFileDialog.getOpenFileName(self, 'Importar chave local', '', 'Dispositivos Tuya (*.json)')
+        # The popup panel closes when the dialog activates and takes an owned native dialog with it.
+        self.panel.hide()
+        filename, _ = QFileDialog.getOpenFileName(None, 'Importar chave local', '', 'Dispositivos Tuya (*.json)')
+        self.panel.show(); self.panel.raise_(); self.panel.activateWindow()
         if not filename: return
         try:
             if Path(filename).stat().st_size > 1024*1024: raise ValueError()
