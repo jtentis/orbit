@@ -67,7 +67,12 @@ class LocalLamp:
 
     def _accept(self, response):
         if isinstance(response, dict) and 'Error' in response:
-            raise RuntimeError(f'A lâmpada respondeu com erro {response.get("Err")}. Confira a chave local, a rede e se outro app está usando a lâmpada.')
+            code = str(response.get('Err'))
+            raise RuntimeError({
+                '905': 'Lâmpada fora da rede: ela não responde no Wi-Fi. Confira se está energizada (interruptor ligado).',
+                '901': 'A lâmpada não respondeu a tempo. Confira o sinal do Wi-Fi perto dela.',
+                '914': 'A lâmpada recusou a sessão: outro aparelho pode estar conectado, ou a chave local mudou.',
+            }.get(code, f'A lâmpada respondeu com erro {code}. Confira a chave local e a rede.') + f' (erro {code})')
         if not isinstance(response, dict) or not isinstance(response.get('dps'), dict) or not response['dps']:
             raise RuntimeError('Não foi possível ler a lâmpada. Confira a chave local e a conexão Wi-Fi.')
         received = response['dps']

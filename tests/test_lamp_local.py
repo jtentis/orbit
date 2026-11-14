@@ -234,3 +234,10 @@ def test_session_is_released_so_another_client_can_use_the_lamp():
     device.release()
     assert bulb.closed
     assert device.refresh().power is True
+
+
+def test_offline_lamp_is_reported_as_off_the_network_not_as_a_key_problem():
+    device, bulb = local([read()])
+    bulb.responses = [{'Error': 'Network Error: Device Unreachable', 'Err': '905', 'Payload': None}]
+    with pytest.raises(RuntimeError, match='fora da rede'):
+        device.refresh()
