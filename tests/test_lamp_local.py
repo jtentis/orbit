@@ -227,3 +227,10 @@ def test_notification_errors_never_expose_key():
     with pytest.raises(RuntimeError) as caught: device.command('power', False)
     assert KEY not in str(caught.value)
     assert bulb.retry is True and bulb.connection_timeout == 3
+
+
+def test_session_is_released_so_another_client_can_use_the_lamp():
+    device, bulb = local([read()])
+    device.release()
+    assert bulb.closed
+    assert device.refresh().power is True

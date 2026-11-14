@@ -66,7 +66,9 @@ class LocalLamp:
         return self._accept(response)
 
     def _accept(self, response):
-        if not isinstance(response, dict) or 'Error' in response or not isinstance(response.get('dps'), dict) or not response['dps']:
+        if isinstance(response, dict) and 'Error' in response:
+            raise RuntimeError(f'A lâmpada respondeu com erro {response.get("Err")}. Confira a chave local, a rede e se outro app está usando a lâmpada.')
+        if not isinstance(response, dict) or not isinstance(response.get('dps'), dict) or not response['dps']:
             raise RuntimeError('Não foi possível ler a lâmpada. Confira a chave local e a conexão Wi-Fi.')
         received = response['dps']
         dps = {**self.dps, **received}
@@ -184,6 +186,10 @@ class LocalLamp:
                 return state
         LOG.warning('[latency] id=%s kind=%s stage=unconfirmed elapsed_ms=%.1f', request_id, kind, (time.perf_counter()-started)*1000)
         raise RuntimeError('O ajuste local foi enviado, mas a lâmpada não confirmou a alteração.')
+
+    def release(self):
+        """The lamp serves one local session at a time; free it so another client can use it."""
+        if self.bulb: self.bulb.close()
 
     def close(self):
         if self.bulb: self.bulb.close()

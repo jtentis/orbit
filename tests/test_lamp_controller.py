@@ -90,3 +90,18 @@ def test_successful_retry_stops_retry_timer(controller, monkeypatch):
     controller.retry_timer.start(1000)
     controller.finished('connect', (info, LampState(power=False, health='ONLINE')), None)
     assert not controller.retry_timer.isActive() and controller.online
+
+
+def test_local_session_is_released_once_the_lamp_is_idle(controller):
+    controller.device = controller.local; controller.online = True; controller.configured = True
+    controller.finished('refresh', LampState(power=True, health='ONLINE'), None)
+    assert controller.idle_timer.isActive()
+    controller.idle_timer.stop()
+
+
+def test_failed_local_read_frees_the_session_immediately(controller, monkeypatch):
+    submitted = []
+    controller.device = controller.local
+    monkeypatch.setattr(controller.executor, 'submit', lambda work: submitted.append(work))
+    controller.finished('refresh', None, RuntimeError('Lâmpada sem resposta local.'))
+    assert not controller.idle_timer.isActive() and len(submitted) == 1

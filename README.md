@@ -71,6 +71,8 @@ O adaptador Tuya suporta versões 3.1 a 3.5. Outros aparelhos dependem dos recur
 
 Medições na rede e nos aparelhos de teste. A latência varia com a rede, o estado da conexão e a operação. Conexões persistentes, notificações locais e leituras específicas reduzem os atrasos; a interface continua aguardando a confirmação real.
 
+A lâmpada Tuya aceita **uma sessão local por vez**. Para que dois computadores com o Orbit se revezem, a sessão é liberada 5 s depois da última operação (e imediatamente após uma falha). Um comando logo depois desse intervalo paga o handshake, que fica na casa das dezenas de milissegundos.
+
 ## Rodar o app
 
 ### Executável

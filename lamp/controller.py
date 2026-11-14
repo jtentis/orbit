@@ -1,6 +1,7 @@
 """Independent lighting worker: cloud failures never block local AC controls."""
 from concurrent.futures import ThreadPoolExecutor
 import logging
+import random
 import time
 from uuid import uuid4
 from PySide6.QtCore import QObject, Signal, QTimer
@@ -38,6 +39,8 @@ class LampController(QObject):
         self.retry_count = 0
         self.retry_timer = QTimer(self); self.retry_timer.setSingleShot(True)
         self.retry_timer.timeout.connect(self.retry_local)
+        self.idle_timer = QTimer(self); self.idle_timer.setSingleShot(True); self.idle_timer.setInterval(5000)
+        self.idle_timer.timeout.connect(self.release_session)
         self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='lamp')
         self.events = LampEvents(); self.events.done.connect(self.finished)
         self.events.progress.connect(self.command_progress)
@@ -133,6 +136,17 @@ class LampController(QObject):
         def work(): return {**info, 'provider': 'smartthings'}, self.cloud.connect(info)
         self.submit('connect', work)
 
+    def release_when_idle(self, immediate=False):
+        """The lamp accepts one local session at a time, so a second PC (or app) waits here."""
+        if not isinstance(self.device, LocalLamp): return
+        self.idle_timer.stop()
+        if immediate: self.executor.submit(self.local.release)
+        else: self.idle_timer.start()
+
+    def release_session(self):
+        if self.busy: self.idle_timer.start(); return
+        self.executor.submit(self.local.release)
+
     def poll(self):
         if self.busy or not self.configured or self.auth_failed: return
         if isinstance(self.device, LocalLamp) and not self.online and self.local_credentials:
@@ -156,7 +170,7 @@ class LampController(QObject):
 
     def schedule_retry(self):
         delay = (1500, 3000, 6000, 15000, 30000)[min(self.retry_count, 4)]
-        self.retry_count += 1; self.retry_timer.start(delay)
+        self.retry_count += 1; self.retry_timer.start(delay + random.randrange(delay//4 + 1))  # jitter keeps two PCs out of lockstep
         self.message = 'Lâmpada sem conexão · tentando novamente automaticamente…'
         LOG.info('[reconnect] stage=scheduled attempt=%s delay_ms=%s', self.retry_count, delay)
 
@@ -199,6 +213,8 @@ class LampController(QObject):
 
     def finished(self, operation, result, error):
         self.busy = False; self.error = error is not None
+        if error: LOG.warning('Iluminação %s: %s: %s', operation, type(error).__name__, error)
+        self.release_when_idle(immediate=error is not None)
         if error:
             cloud_setup = operation in ('authorize', 'discover') and isinstance(self.device, LocalLamp)
             if isinstance(error, AuthorizationError) and not cloud_setup: self.auth_failed = True
