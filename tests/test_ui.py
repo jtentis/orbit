@@ -482,3 +482,21 @@ def test_add_button_opens_and_leaves_the_lamp_commissioning(panel):
                 if button.accessibleName() == 'Voltar à lâmpada')
     QTest.mouseClick(back, Qt.MouseButton.LeftButton)
     assert panel.pages.currentIndex() == 0 and panel.active_device == 'ac'
+
+
+def test_economy_and_autoclean_follow_advertised_capabilities(panel):
+    import copy, sys
+    sys.path.insert(0, str(Path(__file__).parent))
+    from test_device import EXTRAS
+    resources = json.loads((Path(__file__).parent/'fixtures/ar12-controls.json').read_text())
+    state = state_from_resources({**resources, **copy.deepcopy(EXTRAS)}); state.power = True
+    panel.render(state, True, False, 'ok', {'reduce_motion': True}); panel.show_page(1)
+    requests = []; panel.commandRequested.connect(lambda *args: requests.append(args))
+    assert panel.economy_combo.currentText() == '40%' and panel.autoclean_row.isVisible()
+    assert '63%' in panel.room_label.text() and '30 W' in panel.room_label.text()
+    panel.economy_combo.activated.emit(panel.economy_combo.findData('Off'))
+    QTest.mouseClick(panel.autoclean_toggle, Qt.MouseButton.LeftButton)
+    assert requests[:2] == [('economy', 'Off'), ('autoclean', False)]
+    plain = state_from_resources(resources); plain.power = True
+    panel.render(plain, True, False, 'ok', {'reduce_motion': True})
+    assert not panel.economy_combo.isVisible() and not panel.autoclean_row.isVisible() and not panel.usage_label.isVisible()

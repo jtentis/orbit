@@ -22,7 +22,7 @@ O Orbit reúne o controle do ar-condicionado Samsung e da lâmpada Tuya em um pa
   </tr>
 </table>
 
-**Climatização:** energia, temperatura, modo, ventilação, direção, WindFree, conforto e luz do display, conforme os recursos do aparelho.
+**Climatização:** energia, temperatura, modo, ventilação, direção, WindFree, conforto e luz do display, conforme os recursos do aparelho. A linha do ambiente mostra umidade e consumo instantâneo; em **Configurações** ficam a economia de energia (limite do compressor em 80, 60 ou 40%), a limpeza automática ao desligar, a energia acumulada e o uso do filtro. Cada item só aparece se o aparelho o anunciar.
 
 **Iluminação:** energia, brilho, três presets de branco, tonalidade e saturação. Os presets Quente, Neutro e Frio usam os canais de luz branca; a troca de RGB para branco preserva o brilho ativo.
 

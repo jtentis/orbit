@@ -18,6 +18,8 @@ from lamp.ui import LampPage, LampSetup
 from lamp.local_setup import LocalLampSetup
 from .version import BUILD
 
+ECONOMY_LABELS = {'Off': 'Desligada', '80': '80%', '60': '60%', '40': '40%', 'Power': 'Potência máx.'}
+
 
 def popup_position(anchor: QRect, available: QRect, width: int, height: int):
     return QPoint(max(available.left(), available.right()+1-width),
@@ -198,10 +200,22 @@ class ControlPanel(QWidget):
         motion_row, self.motion_toggle = self.toggle_row('wind', 'Reduzir movimento', 'Transições imediatas e sem fluxo animado')
         self.motion_toggle.clicked.connect(lambda: self.motionRequested.emit(not self.motion_toggle.isChecked()))
         layout.addWidget(motion_row)
-        layout.addWidget(self.text('Conforto', 'Section'))
+        comfort = QGridLayout(); comfort.setHorizontalSpacing(12); comfort.setVerticalSpacing(5)
+        comfort.addWidget(self.text('Conforto', 'Section'), 0, 0)
         self.preset_combo = Choice(); self.preset_combo.setAccessibleName('Modo de conforto')
         self.preset_combo.activated.connect(lambda index: self.request('preset', self.preset_combo.itemData(index)))
-        layout.addWidget(self.preset_combo)
+        comfort.addWidget(self.preset_combo, 1, 0)
+        self.economy_label = self.text('Economia', 'Section'); comfort.addWidget(self.economy_label, 0, 1)
+        self.economy_combo = Choice(); self.economy_combo.setAccessibleName('Economia de energia')
+        self.economy_combo.setToolTip('Limita a potência do compressor para gastar menos energia.')
+        self.economy_combo.activated.connect(lambda index: self.request('economy', self.economy_combo.itemData(index)))
+        comfort.addWidget(self.economy_combo, 1, 1)
+        layout.addLayout(comfort)
+        self.autoclean_row, self.autoclean_toggle = self.toggle_row('wind', 'Limpeza automática', 'Seca o interior ao desligar')
+        self.autoclean_toggle.clicked.connect(lambda: self.request('autoclean', not bool(self.state and self.state.autoclean)))
+        layout.addWidget(self.autoclean_row)
+        self.usage_label = self.text('', 'Small'); self.usage_label.setWordWrap(True)
+        self.usage_label.setAccessibleName('Consumo de energia e uso do filtro'); layout.addWidget(self.usage_label)
         self.settings_status = self.text('', 'Small'); self.settings_status.setWordWrap(True); layout.addWidget(self.settings_status)
         layout.addStretch(1)
         actions = QHBoxLayout()
@@ -248,8 +262,9 @@ class ControlPanel(QWidget):
             widget.setEnabled(not busy)
         self.connect_button.setText('Conectando…' if busy and operation == 'connect' else 'Conectar ao aparelho')
         self.search_button.setText('Buscando na rede…' if busy and operation == 'discover' else 'Buscar aparelho na rede')
-        for widget in (self.slider, self.minus, self.plus, self.modes, self.fan_combo, self.swing_combo, self.preset_combo):
+        for widget in (self.slider, self.minus, self.plus, self.modes, self.fan_combo, self.swing_combo, self.preset_combo, self.economy_combo):
             widget.setEnabled(climate)
+        self.autoclean_toggle.setEnabled(enabled and bool(state and state.autoclean is not None))
         self.wind_toggle.setEnabled(climate and bool(state and state.windfree is not None))
         self.light_toggle.setEnabled(enabled and bool(state and state.display_light is not None))
         if busy and operation == 'command':
@@ -270,7 +285,11 @@ class ControlPanel(QWidget):
             self.readout.set_value(None); self.room_label.setText('Sem leitura do aparelho'); self.appliance.confirm(None)
             return
         if online:
-            self.room_label.setText(f'Ambiente {state.current:g} °{state.unit} · {"Ligado" if state.power else "Desligado"}' if state.current is not None else ('Ligado' if state.power else 'Desligado'))
+            parts = [f'Ambiente {state.current:g} °{state.unit}' if state.current is not None else None,
+                     f'{state.humidity:g}%' if state.humidity is not None else None,
+                     'Ligado' if state.power else 'Desligado',
+                     f'{state.power_w:.0f} W' if state.power and state.power_w is not None else None]
+            self.room_label.setText(' · '.join(part for part in parts if part))
         else:
             self.room_label.setText('Sem conexão · mostrando a última leitura')
         self.appliance.confirm(state if online else None)
@@ -288,6 +307,14 @@ class ControlPanel(QWidget):
         self.fill_combo(self.preset_combo, [(code, label(code)) for code in state.presets], state.preset)
         self.wind_row.setVisible(state.windfree is not None); self.light_row.setVisible(state.display_light is not None)
         self.wind_toggle.confirm(state.windfree); self.light_toggle.confirm(state.display_light)
+        self.fill_combo(self.economy_combo, [(code, ECONOMY_LABELS.get(code, code)) for code in state.economies], state.economy)
+        self.economy_label.setVisible(bool(state.economies)); self.economy_combo.setVisible(bool(state.economies))
+        self.autoclean_row.setVisible(state.autoclean is not None); self.autoclean_toggle.confirm(state.autoclean)
+        usage = []
+        if state.energy_kwh is not None: usage.append(f'Energia acumulada {state.energy_kwh:,.1f} kWh'.replace(',', 'X').replace('.', ',').replace('X', '.'))
+        if state.filter_hours is not None and state.filter_capacity:
+            usage.append(f'Filtro {state.filter_hours:g} de {state.filter_capacity:g} h')
+        self.usage_label.setText(' · '.join(usage)); self.usage_label.setVisible(bool(usage))
 
     def preview_temperature(self, tick):
         if not self.state or not self.slider.isEnabled(): return

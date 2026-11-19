@@ -18,6 +18,11 @@ MODE = '/mode/vs/0'
 PRESET = '/mode/convenient/vs/0'
 FAN = '/wind/strength/vs/0'
 SWING = '/wind/direction/vs/0'
+ECONOMY = '/stepcontrol/vs/0'
+AUTOCLEAN = '/option/autoclean/vs/0'
+ENERGY = '/energy/consumption/vs/0'
+FILTER = '/filter/airdustfilter/vs/0'
+HUMIDITY = '/humidity/vs/0'
 
 LOG = logging.getLogger(__name__)
 LOG.setLevel(logging.INFO)
@@ -76,6 +81,14 @@ class State:
     power_writable: bool = False
     windfree: bool | None = None
     display_light: bool | None = None
+    economy: str | None = None
+    economies: list[str] = field(default_factory=list)
+    autoclean: bool | None = None
+    power_w: float | None = None
+    energy_kwh: float | None = None
+    filter_hours: float | None = None
+    filter_capacity: float | None = None
+    humidity: float | None = None
 
 
 def state_from_resources(resources: dict) -> State:
@@ -127,6 +140,21 @@ def state_from_resources(resources: dict) -> State:
     dedicated = resources.get('/modeoption/windfree/vs/0', {})
     if V + 'windfree' in dedicated:
         state.windfree = dedicated[V + 'windfree'] in ('On', True)
+    economy = resources.get(ECONOMY, {})
+    state.economy = economy.get(V + 'modes')
+    state.economies = list(economy.get(V + 'supportedModes', []))
+    autoclean = resources.get(AUTOCLEAN, {}).get(V + 'settingStatus')
+    state.autoclean = autoclean == 'On' if autoclean in ('On', 'Off') else None
+    energy = resources.get(ENERGY, {})
+    state.power_w = numeric(energy.get(V + 'instantaneousPower'))
+    total = numeric(energy.get(V + 'cumulativePower'))
+    if total is not None:
+        state.energy_kwh = total/1000 if energy.get(V + 'cumulativeUnit', 'Wh') == 'Wh' else total
+    dust = resources.get(FILTER, {})
+    state.filter_hours = numeric(dust.get(V + 'filterUsage'))
+    state.filter_capacity = numeric(dust.get(V + 'filterCapacity'))
+    humidity = numeric(resources.get(HUMIDITY, {}).get(V + 'fivepercentHumidity'))
+    state.humidity = humidity if humidity else None  # 0 means the sensor is not reporting
     return state
 
 
@@ -155,7 +183,8 @@ def command_payload(kind: str, value, resources: dict) -> tuple[str, dict]:
         items = resources['/temperatures/vs/0'][V + 'items']
         return '/temperatures/vs/0', {V + 'items': [{V + 'id': items[0].get(V + 'id', '0'), V + 'desired': str(n)}]}
     allowed = {'mode': (MODE, state.modes), 'fan': (FAN, [code for code, _ in state.fans]),
-               'swing': (SWING, state.swings), 'preset': (PRESET, state.presets)}
+               'swing': (SWING, state.swings), 'preset': (PRESET, state.presets),
+               'economy': (ECONOMY, state.economies)}
     if kind in allowed:
         path, values = allowed[kind]
         if value not in values:
@@ -170,6 +199,10 @@ def command_payload(kind: str, value, resources: dict) -> tuple[str, dict]:
         if preset not in state.presets:
             raise ValueError('WindFree indisponível neste estado.')
         return PRESET, {V + 'modes': preset}
+    if kind == 'autoclean' and state.autoclean is not None:
+        if not isinstance(value, bool):
+            raise ValueError('Estado da limpeza automática inválido.')
+        return AUTOCLEAN, {V + 'settingStatus': 'On' if value else 'Off'}
     raise ValueError('Controle indisponível neste aparelho.')
 
 
@@ -332,7 +365,8 @@ class Device:
     def _status_paths(self):
         candidates = ('/power/vs/0', '/power/0', MODE, '/temperature/desired/0',
                       '/temperatures/vs/0', FAN, SWING, PRESET,
-                      '/modeoption/windfree/vs/0', '/light/vs/0', '/temperature/current/0')
+                      '/modeoption/windfree/vs/0', '/light/vs/0', '/temperature/current/0',
+                      ECONOMY, AUTOCLEAN, ENERGY, HUMIDITY, FILTER)
         with self._condition:
             return [href for href in candidates if href in self.resources]
 
@@ -365,6 +399,7 @@ class Device:
         if kind == 'power': return V+'power' if path == '/power/vs/0' else 'value'
         if kind == 'temperature': return 'temperature' if path == '/temperature/desired/0' else V+'items'
         if kind == 'windfree' and path == '/modeoption/windfree/vs/0': return V+'windfree'
+        if kind == 'autoclean': return V+'settingStatus'
         return V+'modes'
 
     def command(self, kind: str, value, request_id=None) -> State:
@@ -376,7 +411,7 @@ class Device:
             self.refresh()
         enabling_nano = (kind == 'windfree' and value) or (kind == 'preset' and value in ('Nano', 'NanoSleep'))
         required = []
-        if kind not in ('power', 'display_light'):
+        if kind not in ('power', 'display_light', 'autoclean'):
             required.append('/power/vs/0' if '/power/vs/0' in self.resources else '/power/0')
         if enabling_nano:
             required.extend((MODE, PRESET))
@@ -384,7 +419,7 @@ class Device:
             if href in self.resources and href not in self._observed:
                 self.read_resource(href)
         before = self.snapshot()
-        if kind not in ('power', 'display_light') and before.power is False:
+        if kind not in ('power', 'display_light', 'autoclean') and before.power is False:
             raise ValueError('Ligue o aparelho antes de ajustar a climatização.')
         if enabling_nano and before.mode not in ('Cool', 'Dry'):
             raise ValueError('Para ativar WindFree, selecione Resfriar ou Desumidificar primeiro.')

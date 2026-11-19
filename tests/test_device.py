@@ -308,3 +308,46 @@ def test_targeted_read_does_not_overwrite_a_newer_notification(resources):
             return 69, cbor2.dumps(original)
     device.session = Session()
     assert device.read_resource(MODE).display_light is True
+
+
+EXTRAS = {
+    '/stepcontrol/vs/0': {V + 'modes': '40', V + 'supportedModes': ['Off', '80', '60', '40', 'Power']},
+    '/option/autoclean/vs/0': {V + 'settingStatus': 'On', V + 'supportedSettingStatus': ['On', 'Off']},
+    '/energy/consumption/vs/0': {V + 'instantaneousPower': '30.000000', V + 'cumulativePower': '221572', V + 'cumulativeUnit': 'Wh'},
+    '/filter/airdustfilter/vs/0': {V + 'filterUsage': '42', V + 'filterCapacity': '500'},
+    '/humidity/vs/0': {V + 'humidity': '0', V + 'fivepercentHumidity': '63'},
+}
+
+
+def test_reads_energy_filter_humidity_and_economy_from_real_ar12_resources(resources):
+    state = state_from_resources({**resources, **copy.deepcopy(EXTRAS)})
+    assert (state.economy, state.economies) == ('40', ['Off', '80', '60', '40', 'Power'])
+    assert state.autoclean is True and state.power_w == 30 and state.energy_kwh == pytest.approx(221.572)
+    assert (state.filter_hours, state.filter_capacity, state.humidity) == (42, 500, 63)
+
+
+def test_extras_are_absent_on_appliances_that_do_not_advertise_them(resources):
+    state = state_from_resources(resources)
+    assert state.economy is None and state.autoclean is None and state.humidity is None
+    with pytest.raises(ValueError): command_payload('economy', '80', resources)
+    with pytest.raises(ValueError): command_payload('autoclean', False, resources)
+
+
+def test_economy_only_accepts_advertised_levels(resources):
+    extended = {**resources, **copy.deepcopy(EXTRAS)}
+    assert command_payload('economy', '60', extended) == ('/stepcontrol/vs/0', {V + 'modes': '60'})
+    with pytest.raises(ValueError): command_payload('economy', '20', extended)
+
+
+def test_autoclean_setting_changes_while_air_conditioner_is_off(resources, monkeypatch):
+    extended = {**resources, **copy.deepcopy(EXTRAS)}
+    class Session:
+        def get(self, path, **kwargs):
+            return 69, cbor2.dumps(extended['/'+'/'.join(path)])
+        def post(self, path, body, **kwargs):
+            extended['/option/autoclean/vs/0'][V + 'settingStatus'] = cbor2.loads(body)[V + 'settingStatus']
+            return 68, b''
+    device = Device(); device.session = Session(); device.resources = extended
+    monkeypatch.setattr('aircon.device.time.sleep', lambda _: None)
+    assert device.command('autoclean', False).autoclean is False
+    assert state_from_resources(extended).power is False
